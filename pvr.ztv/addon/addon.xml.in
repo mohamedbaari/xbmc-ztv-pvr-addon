@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
-  id="pvr.demo"
+  id="pvr.ztv"
   version="1.6.0"
-  name="PVR Demo Client"
-  provider-name="Pulse-Eight Ltd.">
+  name="PVR ZTV Client"
+  provider-name="ViPetroFF">
   <requires>
     <c-pluff version="0.1"/>
   </requires>
   <extension
     point="xbmc.pvrclient"
-    library_linux="XBMC_Demo.pvr"
-	library_osx="XBMC_Demo.pvr"
-    library_wingl="XBMC_Demo_win32.dll"
-    library_windx="XBMC_Demo_win32.dll"
-    library_android="libXBMC_Demo.so" />
+    library_linux="XBMC_ZTV.pvr"
+	library_osx="XBMC_ZTV.pvr"
+    library_wingl="XBMC_ZTV_win32.dll"
+    library_windx="XBMC_ZTV_win32.dll"
+    library_android="libXBMC_ZTV.so" />
   <extension point="xbmc.addon.metadata">
-    <summary>Demo PVR Client</summary>
-    <description>Demo PVR Client</description>
-    <disclaimer>Just contains stubs</disclaimer>
+  <summary>XBMC frontend for the ZTV service.</summary>
+  <description>ZTV frontend. Supports streaming of Live TV &amp; EPG.</description>
+  <disclaimer>This is alpha version. Use at your own risk.</disclaimer>
     <platform>@OS@</platform>
   </extension>
 </addon>
