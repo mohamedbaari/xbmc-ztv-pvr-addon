@@ -294,7 +294,7 @@ bool PVRDemoData::LoadDemoData(void)
         channel.iChannelNumber = iUniqueChannelId;
 
       /* CAID */
-      if (!XMLUtils::GetInt(pChannelNode, "encryption", channel.iEncryptionSystem))
+      //if (!XMLUtils::GetInt(pChannelNode, "encryption", channel.iEncryptionSystem))
         channel.iEncryptionSystem = 0;
 
       /* icon path */
@@ -321,7 +321,15 @@ bool PVRDemoData::LoadDemoData(void)
       else
         channel.strStreamURL = strTmp;
 
-	  if("ca:" == channel.strStreamURL.substr(0,3))
+	  if(channel.strStreamURL.length() < 6)
+	  {
+		  channel.iEncryptionSystem = 0;
+	  }
+	  else if("udp:" == channel.strStreamURL.substr(0,4))
+	  {
+		  channel.iEncryptionSystem = 1;
+	  }
+	  else if("ca:" == channel.strStreamURL.substr(0,3))
 	  {
 		  channel.iEncryptionSystem = -1;
 	  }
@@ -330,7 +338,7 @@ bool PVRDemoData::LoadDemoData(void)
 
 		CStdString strIp = channel.strStreamURL;
 		int ndx = strIp.ReverseFind(':');
-		if(ndx > 0 && "1234" == strIp.Mid(ndx + 1))
+		if(ndx > 0 && strIp.Left(ndx).ReverseFind(':') > 0)//"1234" == strIp.Mid(ndx + 1))
 		{
 			int ndxx = strIp.ReverseFind('/');
 
@@ -696,11 +704,11 @@ bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
 	  bool bYes=false;
 	  if (TIXML_SUCCESS != pChannelElement->QueryBoolAttribute("encrypted", &bYes))
 	  {
-		channel.iEncryptionSystem = 0;
+		channel.iEncryptionSystem = 1;
 	  }
 	  else
 	  {
-		channel.iEncryptionSystem = (bYes)?-1:0;
+		channel.iEncryptionSystem = (bYes)?-1:1;
 	  }
 
       /* icon path */
@@ -739,7 +747,7 @@ bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
 			ulAddr = INADDR_NONE;
 		}
 
-		LPCSTR lpcszProto=(0 == channel.iEncryptionSystem)?"udp":"ca";
+		LPCSTR lpcszProto=(1 == channel.iEncryptionSystem)?"udp":"ca";
 		strTmp.Format("%s://@%s", lpcszProto, lpszTmp);
         channel.strStreamURL = strTmp;
 		channel.ulIpNumber = ulAddr;
@@ -796,7 +804,8 @@ PVR_ERROR PVRDemoData::GetChannels(ADDON_HANDLE handle, bool bRadio)
       xbmcChannel.bIsRadio          = channel.bRadio;
       xbmcChannel.iChannelNumber    = channel.iChannelNumber;
       strncpy(xbmcChannel.strChannelName, channel.strChannelName.c_str(), sizeof(xbmcChannel.strChannelName) - 1);
-	  if(0 == channel.iEncryptionSystem)
+	  
+	  if(!m_ptrVLCCAModule || 0 == channel.iEncryptionSystem)
 	  {
 		strncpy(xbmcChannel.strStreamURL, channel.strStreamURL.c_str(), sizeof(xbmcChannel.strStreamURL) - 1);
 	  }
@@ -1145,12 +1154,16 @@ bool PVRDemoData::OpenLiveStream(const PVR_CHANNEL &channelinfo)
 
 void PVRDemoData::CloseLiveStream()
 {
-	if(m_currentStream)
+	if(m_currentChannel.iUniqueId)
 	{
 		m_currentChannel.iUniqueId = 0;
 		m_currentChannel.strStreamURL.clear();
-		m_currentStream->Release();
-		m_currentStream = NULL;
+
+		if(m_currentStream)
+		{
+			m_currentStream->Release();
+			m_currentStream = NULL;
+		}
 	}
 }
 
