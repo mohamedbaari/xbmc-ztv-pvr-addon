@@ -22,6 +22,7 @@
 
 #include "tinyxml/XMLUtils.h"
 #include "utils.h"
+#include "netstream.h"
 #include "LibVLCPlugin.h"
 #include "PVRDemoData.h"
 
@@ -33,16 +34,34 @@ using namespace LibVLCCAPlugin;
 #define HTTP_OK 200
 #define HTTP_NOTFOUND 404
 
-PVRDemoData::PVRDemoData(bool bIsEnableOnLineEpg)
+PVRDemoData::PVRDemoData(bool bIsEnableOnLineEpg, LPCSTR lpszMCastIf)
 {
   m_iEpgStart = -1;
-  //m_strDefaultIcon =  "http://www.royalty-free.tv/news/wp-content/uploads/2011/06/cc-logo1.jpg";
   m_strDefaultIcon = GetIconPath("515");
-  //m_strDefaultMovie = "";
   m_ptrVLCCAModule = NULL;
   m_currentStream = NULL;
   m_currentChannel.iUniqueId = 0;
   m_bIsEnableOnLineEpg = bIsEnableOnLineEpg;
+
+  m_ulMCastIf = INADDR_NONE;
+
+  if(lpszMCastIf && '\0' != *lpszMCastIf && strcmp("255.255.255.255", lpszMCastIf))
+  {
+    m_ulMCastIf = inet_addr(lpszMCastIf);
+
+	if (m_ulMCastIf == INADDR_NONE)
+	{
+		XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_NONE");
+	}   
+    
+	if (m_ulMCastIf == INADDR_ANY)
+	{
+		XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_ANY");
+		m_ulMCastIf = INADDR_NONE;
+	}
+  }
+
+  LibNetStream::INetStreamFactory::SetMCastIf(m_ulMCastIf);
 }
 
 PVRDemoData::~PVRDemoData(void)
@@ -51,11 +70,11 @@ PVRDemoData::~PVRDemoData(void)
   m_groups.clear();
 }
 
-bool PVRDemoData::VLCInit(LPCSTR lpszCA, ULONG ulMCastIf)
+bool PVRDemoData::VLCInit(LPCSTR lpszCA)
 {
 	if(!m_ptrVLCCAModule)
 	{
-		m_ptrVLCCAModule = ILibVLCModule::NewModule(g_strClientPath, lpszCA, ulMCastIf);
+		m_ptrVLCCAModule = ILibVLCModule::NewModule(g_strClientPath, lpszCA, m_ulMCastIf);
 	}
 
 	return (NULL != m_ptrVLCCAModule);
@@ -70,7 +89,7 @@ void PVRDemoData::FreeVLC(void)
 	}
 }
 
-bool PVRDemoData::LoadChannelsData(bool bIsOnLineSource, bool bIsEnableOnLineGroups)
+bool PVRDemoData::LoadChannelsData(const std::string& strM3uPath, bool bIsOnLineSource, bool bIsEnableOnLineGroups)
 {
 	bool bSuccess = false;
 
@@ -150,7 +169,19 @@ bool PVRDemoData::LoadChannelsData(bool bIsOnLineSource, bool bIsEnableOnLineGro
 	}
 	else
 	{
-		bSuccess = LoadDemoData();
+		if(strM3uPath.empty())
+		{
+			bSuccess = LoadDemoData();
+		}
+		else
+		{
+			bSuccess = LoadM3UList(strM3uPath);
+		}
+	}
+
+	if(bSuccess)
+	{
+		XBMC->QueueNotification(QUEUE_INFO, "%d channels loaded.", m_channels.size());
 	}
 
 	return bSuccess;
@@ -203,52 +234,82 @@ private:
 
 std::string PVRDemoData::GetIconPath(LPCSTR lpszIcoFName) const
 {
-  string iconFile = g_strClientPath;
-  string iconName = lpszIcoFName;
+	string iconFile = g_strClientPath;
+	string iconName = lpszIcoFName;
 
-  const CStdString chars("\\/:*?|<>");
-  TStrFindFunc1 funcFind(&CStdString::Find);
-  TStrFindFunc1Binder binderFind(funcFind, chars);
-  charfinder findPred(binderFind);
+	string::size_type pos = iconName.find(':');
+	if(string::npos == pos || iconName.size() < (pos + 4) || ('\\' != iconName[pos + 1] && '/' != iconName[pos + 1]))
+	{
+		iconName.erase(iconName.begin(),
+			find_if(iconName.begin(), iconName.end(), NotSpace<string::value_type>()));
+		string::const_reverse_iterator it = find_if(iconName.rbegin(), iconName.rend(), NotSpace<string::value_type>());
+		iconName.erase(!(it == iconName.rend()) ? iconName.find_last_of(*it) + 1 : 0);
 
-  replace_if(iconName.begin(), iconName.end(), findPred, '~') ;
+		const CStdString chars("\\/:*?|<>");
+		TStrFindFunc1 funcFind(&CStdString::Find);
+		TStrFindFunc1Binder binderFind(funcFind, chars);
+		charfinder findPred(binderFind);
 
-  CStdStringW strNameW = UTF8Util::ConvertUTF8ToUTF16(iconName.c_str());
-  std::map<std::wstring, int>::const_iterator pos = m_mapLogo.find(strNameW.Trim().ToLower());
-  if(m_mapLogo.end() != pos && pos->second > 0)
-  {
-	  if (iconFile.at(iconFile.size() - 1) == '\\' ||
-		  iconFile.at(iconFile.size() - 1) == '/')
-		iconFile.append("Logo\\");
-	  else
-		iconFile.append("\\Logo\\");
+		replace_if(iconName.begin(), iconName.end(), findPred, '~') ;
 
-	  CStdString strName;
-	  strName.Format("%.3d.png", pos->second);
+
+		char chSlash;
+		if ((chSlash = *iconFile.crbegin()) == '\\' || chSlash == '/')
+		{
+			chSlash = *iconFile.crbegin();
+			iconFile.erase(iconFile.length()-1);
+		}
+		else
+		{
+			chSlash = '\\';
+		}
+
+		iconFile.append(1, chSlash);
+		iconFile.append("Icons");
+		iconFile.append(1, chSlash);
+		iconFile.append(iconName);
+		iconFile.append(".png");
+
+
+		if (!XBMC->FileExists(iconFile.c_str(), false))
+		{
+			CStdStringW strNameW = UTF8Util::ConvertUTF8ToUTF16(iconName.c_str());
+			std::map<std::wstring, int>::const_iterator pos = m_mapLogo.find(strNameW.Trim().ToLower());
+			if(m_mapLogo.end() != pos && pos->second > 0)
+			{
+				iconFile = g_strClientPath;
+				if ((chSlash = *iconFile.crbegin()) == '\\' || chSlash == '/')
+				{
+					iconFile.erase(iconFile.length()-1);
+				}
+				else
+				{
+					chSlash = '\\';
+				}
+
+				iconFile.append(1, chSlash);
+				iconFile.append("Logo");
+				iconFile.append(1, chSlash);
+
+				CStdString strName;
+				strName.Format("%.3d.png", pos->second);
 	  
-	  iconFile.append(strName.c_str());
-  }
-  else
-  {
-	  if (iconFile.at(iconFile.size() - 1) == '\\' ||
-		  iconFile.at(iconFile.size() - 1) == '/')
-		iconFile.append("Icons\\");
-	  else
-		iconFile.append("\\Icons\\");
+				iconFile.append(strName.c_str());
+			}
+			else
+			{
+				iconFile = m_strDefaultIcon;
+			}
+		}
+	}
+	else if (!XBMC->FileExists(iconName.c_str(), false))
+	{
+		iconFile = m_strDefaultIcon;
+	}
 
-	  iconFile.erase(iconFile.begin(),
-		  find_if(iconFile.begin(), iconFile.end(), NotSpace<string::value_type>()));
-	  string::const_reverse_iterator it = find_if(iconFile.rbegin(), iconFile.rend(), NotSpace<string::value_type>());
-	  iconFile.erase(!(it == iconFile.rend()) ? iconFile.find_last_of(*it) + 1 : 0);
+	//XBMC->Log(LOG_DEBUG, "%s - icon path: %s", __FUNCTION__, iconFile.c_str());
 
-	  //iconFile.append(WideCharToMultiByte(strNameW));
-	  iconFile.append(iconName);
-	  iconFile.append(".png");
-  }
-
-  //XBMC->Log(LOG_DEBUG, "%s - icon path: %s", __FUNCTION__, iconFile.c_str());
-
-  return iconFile;
+	return iconFile;
 }
 
 bool PVRDemoData::LoadDemoData(void)
@@ -278,7 +339,7 @@ bool PVRDemoData::LoadDemoData(void)
     while ((pChannelNode = pElement->IterateChildren(pChannelNode)) != NULL)
     {
       CStdString strTmp;
-      PVRDemoChannel channel;
+	  PVRDemoChannel channel;
       channel.iUniqueId = ++iUniqueChannelId;
 
       /* channel name */
@@ -295,25 +356,14 @@ bool PVRDemoData::LoadDemoData(void)
 
       /* CAID */
       //if (!XMLUtils::GetInt(pChannelNode, "encryption", channel.iEncryptionSystem))
-        channel.iEncryptionSystem = 0;
+	    //channel.iEncryptionSystem = 0;
 
       /* icon path */
       if (XMLUtils::GetString(pChannelNode, "icon", strTmp))
         channel.strIconPath = strTmp;
 
-	  if(string::npos == channel.strIconPath.find(':'))
-	  {
-		  string nameIcon = channel.strIconPath.empty()?channel.strChannelName:channel.strIconPath.substr(0, channel.strIconPath.length() - 4);
-		  string pathIcon = GetIconPath(nameIcon.c_str());
-		  if (XBMC->FileExists(pathIcon.c_str(), false))
-		  {
-			  channel.strIconPath = pathIcon;
-		  }
-		  else
-		  {
-			  channel.strIconPath = m_strDefaultIcon;
-		  }
-	  }
+	  string nameIcon = channel.strIconPath.empty()?channel.strChannelName:channel.strIconPath.substr(0, channel.strIconPath.length() - 4);
+      channel.strIconPath = GetIconPath(nameIcon.c_str());
 
       /* stream url */
       if (!XMLUtils::GetString(pChannelNode, "stream", strTmp))
@@ -321,17 +371,20 @@ bool PVRDemoData::LoadDemoData(void)
       else
         channel.strStreamURL = strTmp;
 
+      channel.bIsTcpTransport = false;  
+	  channel.iEncryptionSystem = 0;
+
 	  if(channel.strStreamURL.length() < 6)
 	  {
 		  channel.iEncryptionSystem = 0;
 	  }
-	  else if("udp:" == channel.strStreamURL.substr(0,4))
+	  else if("ca:" == channel.strStreamURL.substr(0,3))
 	  {
 		  channel.iEncryptionSystem = 1;
 	  }
-	  else if("ca:" == channel.strStreamURL.substr(0,3))
+	  else if("http:" == channel.strStreamURL.substr(0,5))
 	  {
-		  channel.iEncryptionSystem = -1;
+		  channel.bIsTcpTransport = true;
 	  }
 
 		channel.ulIpNumber = INADDR_NONE;
@@ -402,6 +455,7 @@ bool PVRDemoData::LoadDemoData(void)
     }
   }
 
+#if 0
   /* load EPG entries */
   pElement = pRootElement->FirstChildElement("epg");
   if (pElement)
@@ -461,7 +515,6 @@ bool PVRDemoData::LoadDemoData(void)
     }
   }
 
-#if 0
   /* load recordings */
   iUniqueGroupId = 0; // reset unique ids
   pElement = pRootElement->FirstChildElement("recordings");
@@ -699,16 +752,17 @@ bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
 		channel.iChannelNumber = channel.iUniqueId;
 	  }
 
+	  channel.bIsTcpTransport = false;
       /* CAID */
       //if (!XMLUtils::GetInt(pChannelNode, "encryption", channel.iEncryptionSystem))
 	  bool bYes=false;
 	  if (TIXML_SUCCESS != pChannelElement->QueryBoolAttribute("encrypted", &bYes))
 	  {
-		channel.iEncryptionSystem = 1;
+		channel.iEncryptionSystem = 0;
 	  }
 	  else
 	  {
-		channel.iEncryptionSystem = (bYes)?-1:1;
+		channel.iEncryptionSystem = (bYes)?1:0;
 	  }
 
       /* icon path */
@@ -717,12 +771,7 @@ bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
       //else
         //channel.strIconPath = strTmp;
 		
-	  channel.strIconPath = m_strDefaultIcon;
-	  string pathIcon = GetIconPath(channel.strChannelName.c_str());
-	  if (XBMC->FileExists(pathIcon.c_str(), false))
-	  {
-		  channel.strIconPath = pathIcon;
-	  }
+	  channel.strIconPath = GetIconPath(channel.strChannelName.c_str());
 
       /* stream url */
       //if (!XMLUtils::GetString(pChannelNode, "stream", strTmp))
@@ -747,7 +796,7 @@ bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
 			ulAddr = INADDR_NONE;
 		}
 
-		LPCSTR lpcszProto=(1 == channel.iEncryptionSystem)?"udp":"ca";
+		LPCSTR lpcszProto=(1 == channel.iEncryptionSystem)?"ca":"udp";
 		strTmp.Format("%s://@%s", lpcszProto, lpszTmp);
         channel.strStreamURL = strTmp;
 		channel.ulIpNumber = ulAddr;
@@ -785,6 +834,242 @@ bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
   return true;
 }
 
+#define M3U_START_MARKER       "#EXTM3U"
+#define M3U_INFO_MARKER        "#EXTINF"
+
+#define TVG_INFO_LOGO_MARKER   "tvg-logo="
+
+#define CHANNEL_ID_MARKER      "id="
+#define GROUP_NAME_MARKER      "group-title="
+
+class groupfinder: unary_function<const PVRDemoChannelGroup&, bool>
+{
+public:
+	groupfinder(const string& str):_strGroupName(str){}
+    result_type operator()(argument_type group)
+    {
+		return (result_type)(_strGroupName == group.strGroupName);
+    }
+private:
+	const string& _strGroupName;
+};
+
+bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
+{
+	void* hFile = XBMC->OpenFile(strM3uUri.c_str(), 0);
+	if (!hFile)
+	{
+		XBMC->Log(LOG_ERROR, "Unable to load playlist file '%s':  file is missing or empty.", strM3uUri.c_str());
+		return false;
+	}
+
+	/* load channels */
+	bool isfirst = true;
+
+	int iUniqueChannelId = 0;
+	int iUniqueGroupId = 0;
+	int iCurrentGroupId = 0;
+
+	PVRDemoChannel channel;
+
+	//char szLine[1024];
+	//while(stream.getline(szLine, 1024))
+
+    CStdString strLine;
+	while(XBMC->ReadFileString(hFile, strLine.SetBuf(512), 512))
+	{
+		strLine.RelBuf();
+		strLine.TrimRight(" \t\r\n");
+		strLine.TrimLeft(" \t");
+
+		if (strLine.IsEmpty())
+		{
+			continue;
+		}
+
+		if (isfirst) 
+		{
+			isfirst = false;
+			if (strLine.Left(3) == "\xEF\xBB\xBF")
+			{
+				strLine.Delete(0, 3);
+			}
+			if (strLine.Left((int)strlen(M3U_START_MARKER)) == M3U_START_MARKER) 
+			{
+				continue;
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		CStdString	strChnlName;
+		CStdString	strChnlID;
+		CStdString	strTvgLogo;
+		CStdString	strGroupName;
+
+		if (strLine.Left((int)strlen(M3U_INFO_MARKER)) == M3U_INFO_MARKER) 
+		{
+			// parse line
+			int iColon = (int)strLine.Find(':');
+			int iComma = (int)strLine.ReverseFind(',');
+			if (iColon >= 0 && iComma >= 0 && iComma > iColon) 
+			{
+				// parse name
+				iComma++;
+				strChnlName = strLine.Right((int)strLine.size() - iComma);
+				//tmpChannel.strChannelName = XBMC->UnknownToUTF8(strChnlName);
+				channel.strChannelName = XBMC->UnknownToUTF8(strChnlName);
+
+				// parse info
+				CStdString strInfoLine = strLine.Mid(++iColon, --iComma - iColon);
+
+				strChnlID = ReadMarkerValue(strInfoLine, CHANNEL_ID_MARKER);
+				strTvgLogo = ReadMarkerValue(strInfoLine, TVG_INFO_LOGO_MARKER);
+				strGroupName = ReadMarkerValue(strInfoLine, GROUP_NAME_MARKER);
+
+				if (strTvgLogo.IsEmpty())
+				{
+					strTvgLogo = strChnlName;
+				}
+				else
+				{
+					//tmpChannel.strTvgLogo = XBMC->UnknownToUTF8(strTvgLogo);
+					strTvgLogo = XBMC->UnknownToUTF8(strTvgLogo);
+				}
+
+				channel.strIconPath = GetIconPath(strTvgLogo);
+
+
+				if (!strGroupName.IsEmpty())
+				{
+					strGroupName = XBMC->UnknownToUTF8(strGroupName);
+
+					//if ((pGroup = FindGroup(strGroupName)) == NULL)
+					vector<PVRDemoChannelGroup>::const_iterator pos = find_if(m_groups.cbegin(), m_groups.cend(), groupfinder(strGroupName));
+					if(m_groups.cend() == pos)
+					{
+					    PVRDemoChannelGroup group;
+						group.strGroupName = strGroupName;
+						group.iGroupId = ++iUniqueGroupId;
+						group.bRadio = false;
+
+						m_groups.push_back(group);
+						iCurrentGroupId = iUniqueGroupId;
+					}
+					else
+					{
+						iCurrentGroupId = pos->iGroupId;
+					}
+				}
+			}
+		} 
+		else if (strLine[0] != '#')
+		{
+			//PVRIptvChannel channel;
+			channel.iUniqueId		= ++iUniqueChannelId;
+			channel.strStreamURL	= strLine;
+			channel.bIsTcpTransport = false;
+			channel.iEncryptionSystem = 0;
+			channel.bRadio = false;
+
+			if(channel.strStreamURL.length() < 6)
+			{
+				channel.iEncryptionSystem = 0;
+			}
+			else if("ca:" == channel.strStreamURL.substr(0,3))
+			{
+				channel.iEncryptionSystem = 1;
+			}
+			else if("http:" == channel.strStreamURL.substr(0,5))
+			{
+				channel.bIsTcpTransport = true;
+			}
+
+			channel.ulIpNumber = INADDR_NONE;
+
+			CStdString strIp = channel.strStreamURL;
+			int ndx = strIp.ReverseFind(':');
+			if(ndx > 0 && strIp.Left(ndx).ReverseFind(':') > 0)//"1234" == strIp.Mid(ndx + 1))
+			{
+				int ndxx = strIp.ReverseFind('/');
+
+				if(ndxx > 0 && ndx > ndxx)
+				{
+					strIp = strIp.Mid(ndxx + 1, ndx - ndxx - 1);
+
+					strIp.TrimLeft('@');
+
+					unsigned long ulAddr = inet_addr(strIp);
+					if ( ulAddr == INADDR_NONE )
+					{
+						XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_NONE");
+					}   
+    
+					if (ulAddr == INADDR_ANY)
+					{
+						XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_ANY");
+						ulAddr = INADDR_NONE;
+					}
+
+					channel.ulIpNumber = ulAddr;
+				}
+			}
+
+			if (!strChnlID.IsEmpty())
+			{
+				//channel.iUniqueId = channel.iChannelNumber;
+				//iUniqueChannelId = channel.iChannelNumber;
+				channel.iChannelNumber = atoi(strChnlID);
+				if(channel.iUniqueId != channel.iChannelNumber)
+				{
+					XBMC->Log(LOG_INFO, "unique channel id (%d) and channel id/number (%d) is not match", channel.iUniqueId, channel.iChannelNumber);
+				}
+
+				if(0 == channel.iChannelNumber)
+				{
+					channel.iChannelNumber = channel.iUniqueId;
+				}
+			}
+			else
+			{
+				channel.iChannelNumber = channel.iUniqueId;
+			}
+
+			m_channels.push_back(channel);
+
+			if (iCurrentGroupId > 0) 
+			{
+				m_groups.at(iCurrentGroupId - 1).members.push_back(channel.iChannelNumber);
+			}
+
+			//tmpChannel.strChannelName = "";
+			//tmpChannel.strTvgName = "";
+			//tmpChannel.strTvgLogo = "";
+			channel.iUniqueId		= 0;
+			channel.iChannelNumber	= 0;
+			channel.iEncryptionSystem = 0;
+			channel.ulIpNumber = 0;
+			channel.strChannelName.clear();
+			channel.strStreamURL.clear();
+			channel.strIconPath.clear();
+		}
+	}
+
+	if (m_channels.size() == 0)
+	{
+		XBMC->Log(LOG_ERROR, "Unable to load channels from file '%s':  file is corrupted.", strM3uUri.c_str());
+		return false;
+	}
+
+	XBMC->CloseFile(hFile);
+
+	XBMC->Log(LOG_NOTICE, "Loaded %d channels.", m_channels.size());
+	return true;
+}
+
+
 int PVRDemoData::GetChannelsAmount(void)
 {
   return m_channels.size();
@@ -804,16 +1089,8 @@ PVR_ERROR PVRDemoData::GetChannels(ADDON_HANDLE handle, bool bRadio)
       xbmcChannel.bIsRadio          = channel.bRadio;
       xbmcChannel.iChannelNumber    = channel.iChannelNumber;
       strncpy(xbmcChannel.strChannelName, channel.strChannelName.c_str(), sizeof(xbmcChannel.strChannelName) - 1);
-	  
-	  if(!m_ptrVLCCAModule || 0 == channel.iEncryptionSystem)
-	  {
-		strncpy(xbmcChannel.strStreamURL, channel.strStreamURL.c_str(), sizeof(xbmcChannel.strStreamURL) - 1);
-	  }
-	  else
-	  {
-		xbmcChannel.iEncryptionSystem = channel.iEncryptionSystem;
-	  }
-
+	  //strncpy(xbmcChannel.strStreamURL, channel.strStreamURL.c_str(), sizeof(xbmcChannel.strStreamURL) - 1);
+	  xbmcChannel.iEncryptionSystem = channel.iEncryptionSystem;
 	  PVR_STRCPY(xbmcChannel.strInputFormat, "video/x-mpegts");
       strncpy(xbmcChannel.strIconPath, channel.strIconPath.c_str(), sizeof(xbmcChannel.strIconPath) - 1);
       xbmcChannel.bIsHidden         = false;
@@ -828,22 +1105,17 @@ PVR_ERROR PVRDemoData::GetChannels(ADDON_HANDLE handle, bool bRadio)
 bool PVRDemoData::GetChannel(const PVR_CHANNEL &channel, PVRDemoChannel &myChannel)
 {
   //for (unsigned int iChannelPtr = 0; iChannelPtr < m_channels.size(); iChannelPtr++)
-  //{
+  if(channel.iUniqueId > 0 && channel.iUniqueId <= m_channels.size())
+  {
     //PVRDemoChannel &thisChannel = m_channels.at(iChannelPtr);
 	PVRDemoChannel& thisChannel = m_channels.at(channel.iUniqueId-1);
     if (thisChannel.iUniqueId == (int) channel.iUniqueId)
     {
-      myChannel.iUniqueId         = thisChannel.iUniqueId;
-      myChannel.bRadio            = thisChannel.bRadio;
-      myChannel.iChannelNumber    = thisChannel.iChannelNumber;
-      myChannel.iEncryptionSystem = thisChannel.iEncryptionSystem;
-      myChannel.strChannelName    = thisChannel.strChannelName;
-      myChannel.strIconPath       = thisChannel.strIconPath;
-      myChannel.strStreamURL      = thisChannel.strStreamURL;
+      myChannel = thisChannel;
 
       return true;
     }
-  //}
+  }
 
   return false;
 }
@@ -932,6 +1204,7 @@ PVR_ERROR PVRDemoData::GetEPGForChannel(ADDON_HANDLE handle, const PVR_CHANNEL &
     //while (iLastEndTime < iEnd && myChannel.epg.size() > 0)
 	if (iLastEndTime < iEnd)
     {
+#if 0
 	  if(myChannel.epg.size() > 0)
 	  {
 		  time_t iLastEndTimeTmp = 0;
@@ -964,7 +1237,10 @@ PVR_ERROR PVRDemoData::GetEPGForChannel(ADDON_HANDLE handle, const PVR_CHANNEL &
 		  iLastEndTime = iLastEndTimeTmp;
 		  iAddBroadcastId += myChannel.epg.size();
 	  }
-	  else if(m_bIsEnableOnLineEpg)
+	  else
+#endif // 0
+
+	  if(m_bIsEnableOnLineEpg)
 	  {
 		  result = RequestWebEPGForChannel(handle, myChannel, iStart, iEnd);
 	  }
@@ -973,6 +1249,7 @@ PVR_ERROR PVRDemoData::GetEPGForChannel(ADDON_HANDLE handle, const PVR_CHANNEL &
 
   return result;
 }
+
 
 //time_t DateTimeToTimeT(const std::string& datetime);
 
@@ -1145,7 +1422,18 @@ bool PVRDemoData::OpenLiveStream(const PVR_CHANNEL &channelinfo)
 
 	if (GetChannel(channelinfo, m_currentChannel))
     {
-		m_currentStream = m_ptrVLCCAModule->NewAccess(m_currentChannel.strStreamURL);
+		XBMC->Log(LOG_DEBUG, "OpenLiveStream(%d:%s) (oid=%d)",
+			m_currentChannel.iChannelNumber, m_currentChannel.strChannelName.c_str(), m_currentChannel.iUniqueId);
+
+		if(m_currentChannel.bIsTcpTransport || !m_ptrVLCCAModule)
+		{
+			m_currentStream = LibNetStream::INetStreamFactory::NewStream(m_currentChannel.strStreamURL);
+		}
+		else
+		{
+			m_currentStream = m_ptrVLCCAModule->NewAccess(m_currentChannel.strStreamURL);
+		}
+
 		bSuccess = (NULL != m_currentStream);
     }
 
@@ -1183,10 +1471,12 @@ bool PVRDemoData::SwitchChannel(const PVR_CHANNEL &channelinfo)
 
 int PVRDemoData::ReadLiveStream(unsigned char *pBuffer, unsigned int iBufferSize)
 {
-	int iRead = 0;
+	int iRead = -1;
+
 	if(m_currentStream)
 	{
 		//XBMC->Log(LOG_DEBUG, "%s - iBufferSize: %u", __FUNCTION__, iBufferSize);
+		iRead = 0;
 		ULONG ulRead;
 		HRESULT hr = m_currentStream->Read(pBuffer, static_cast<ULONG>(iBufferSize), &ulRead);
 		if(SUCCEEDED(hr))
@@ -1206,6 +1496,11 @@ int PVRDemoData::GetCurrentClientChannel()
 const char * PVRDemoData::GetLiveStreamURL(const PVR_CHANNEL &channel)
 {
 	return m_currentChannel.strStreamURL.c_str();
+}
+
+bool PVRDemoData::CanPauseStream()
+{
+	return m_currentChannel.bIsTcpTransport;
 }
 
 int PVRDemoData::GetRecordingsAmount(void)
@@ -1288,7 +1583,7 @@ int PVRDemoData::DoHttpRequest(const CStdString& resource, const CStdString& bod
 			}
 			else
 			{
-				//XBMC->Log(LOG_DEBUG, "%s - response: %s", __FUNCTION__, response.Left(1000).c_str());
+				//XBMC->Log(LOG_DEBUG, "%s - response: %s", __FUNCTION__, response.Left(800).c_str());
 			}
 
 			resultCode = HTTP_OK;
@@ -1309,6 +1604,34 @@ int PVRDemoData::DoHttpRequest(const CStdString& resource, const CStdString& bod
 
 	return resultCode;
 }
+
+CStdString PVRDemoData::ReadMarkerValue(std::string &strLine, const char* strMarkerName)
+{
+	int iMarkerStart = (int) strLine.find(strMarkerName);
+	if (iMarkerStart >= 0)
+	{
+		std::string strMarker = strMarkerName;
+		iMarkerStart += strMarker.length();
+		if (iMarkerStart < (int)strLine.length())
+		{
+			char cFind = ' ';
+			if (strLine[iMarkerStart] == '"')
+			{
+				cFind = '"';
+				iMarkerStart++;
+			}
+			int iMarkerEnd = (int)strLine.find(cFind, iMarkerStart);
+			if (iMarkerEnd < 0)
+			{
+				iMarkerEnd = strLine.length();
+			}
+			return strLine.substr(iMarkerStart, iMarkerEnd - iMarkerStart);
+		}
+	}
+
+	return std::string();
+}
+
 
 #if 0
 

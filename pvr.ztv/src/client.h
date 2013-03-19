@@ -23,15 +23,10 @@
 
 #include "libXBMC_addon.h"
 #include "libXBMC_pvr.h"
+//#include "libXBMC_gui.h"
 
 extern bool                          m_bCreated;
 extern std::string                   g_strUserPath;
 extern std::string                   g_strClientPath;
 extern ADDON::CHelper_libXBMC_addon *XBMC;
 extern CHelper_libXBMC_pvr          *PVR;
-
-/*!
- * @brief PVR macros for string exchange
- */
-#define PVR_STRCPY(dest, source) do { strncpy(dest, source, sizeof(dest)-1); dest[sizeof(dest)-1] = '\0'; } while(0)
-#define PVR_STRCLR(dest) memset(dest, 0, sizeof(dest))

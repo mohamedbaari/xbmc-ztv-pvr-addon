@@ -19,7 +19,7 @@
 				Первый HD.png
 			</icon>
 			<stream>
-				udp://@235.10.10.118:1234
+				udp://@235.10.10.210:1234
 			</stream>
 		</channel>
 		<channel>
@@ -464,7 +464,7 @@
 		</channel>
 		<channel>
 			<name>
-				ТВ-8 (тест)
+				ТВ-8
 			</name>
 			<radio>
 				0
@@ -484,7 +484,7 @@
 		</channel>
 		<channel>
 			<name>
-				ТВ-ВОТ (тест)
+				ТВ-ВОТ
 			</name>
 			<radio>
 				0
@@ -544,13 +544,33 @@
 		</channel>
 		<channel>
 			<name>
-				2X2
+				Russia Today HD
 			</name>
 			<radio>
 				0
 			</radio>
 			<number>
 				28
+			</number>
+			<encryption>
+				0
+			</encryption>
+			<icon>
+				Russia Today.png
+			</icon>
+			<stream>
+				udp://@235.10.10.49:1234
+			</stream>
+		</channel>
+		<channel>
+			<name>
+				2X2
+			</name>
+			<radio>
+				0
+			</radio>
+			<number>
+				29
 			</number>
 			<encryption>
 				0
@@ -570,7 +590,7 @@
 				0
 			</radio>
 			<number>
-				29
+				30
 			</number>
 			<encryption>
 				0
@@ -590,7 +610,7 @@
 				0
 			</radio>
 			<number>
-				30
+				31
 			</number>
 			<encryption>
 				0
@@ -610,7 +630,7 @@
 				0
 			</radio>
 			<number>
-				31
+				32
 			</number>
 			<encryption>
 				0
@@ -630,7 +650,7 @@
 				0
 			</radio>
 			<number>
-				32
+				33
 			</number>
 			<encryption>
 				0
@@ -644,13 +664,53 @@
 		</channel>
 		<channel>
 			<name>
+				Охотник и рыболов HD
+			</name>
+			<radio>
+				0
+			</radio>
+			<number>
+				34
+			</number>
+			<encryption>
+				0
+			</encryption>
+			<icon>
+				Охотник и рыболов HD.png
+			</icon>
+			<stream>
+				udp://@235.10.10.119:1234
+			</stream>
+		</channel>
+		<channel>
+			<name>
+				myZen.tv HD
+			</name>
+			<radio>
+				0
+			</radio>
+			<number>
+				35
+			</number>
+			<encryption>
+				0
+			</encryption>
+			<icon>
+				myZen.tv HD.png
+			</icon>
+			<stream>
+				udp://@235.10.10.120:1234
+			</stream>
+		</channel>
+		<channel>
+			<name>
 				Россия 2
 			</name>
 			<radio>
 				0
 			</radio>
 			<number>
-				33
+				36
 			</number>
 			<encryption>
 				0
@@ -664,13 +724,73 @@
 		</channel>
 		<channel>
 			<name>
+				Trace Sports HD
+			</name>
+			<radio>
+				0
+			</radio>
+			<number>
+				37
+			</number>
+			<encryption>
+				0
+			</encryption>
+			<icon>
+				Trace Sports HD.png
+			</icon>
+			<stream>
+				udp://@235.10.10.110:1234
+			</stream>
+		</channel>
+		<channel>
+			<name>
+				Первый Интернет Канал HD
+			</name>
+			<radio>
+				0
+			</radio>
+			<number>
+				38
+			</number>
+			<encryption>
+				0
+			</encryption>
+			<icon>
+				PIKTV.png
+			</icon>
+			<stream>
+				udp://@235.10.10.100:1234
+			</stream>
+		</channel>
+		<channel>
+			<name>
+				MTV Live HD
+			</name>
+			<radio>
+				0
+			</radio>
+			<number>
+				39
+			</number>
+			<encryption>
+				0
+			</encryption>
+			<icon>
+				MTV Live HD.png
+			</icon>
+			<stream>
+				udp://@235.10.10.121:1234
+			</stream>
+		</channel>
+		<channel>
+			<name>
 				MTV-Russia
 			</name>
 			<radio>
 				0
 			</radio>
 			<number>
-				34
+				40
 			</number>
 			<encryption>
 				0
@@ -684,19 +804,19 @@
 		</channel>
 		<channel>
 			<name>
-				МУЗ-ТВ
+				Ю
 			</name>
 			<radio>
 				0
 			</radio>
 			<number>
-				35
+				41
 			</number>
 			<encryption>
 				0
 			</encryption>
 			<icon>
-				МУЗ-ТВ.png
+				Ю.png
 			</icon>
 			<stream>
 				udp://@235.10.10.10:1234
@@ -792,6 +912,19 @@
 		</group>
 		<group>
 			<name>
+				Развлекательные
+			</name>
+			<radio>
+				0
+			</radio>
+			<members>
+				<member>
+					38
+				</member>
+			</members>
+		</group>
+		<group>
+			<name>
 				Музыка
 			</name>
 			<radio>
@@ -799,10 +932,13 @@
 			</radio>
 			<members>
 				<member>
-					34
+					39
+				</member>			
+				<member>
+					40
 				</member>
 				<member>
-					35
+					41
 				</member>
 			</members>
 		</group>
@@ -815,13 +951,13 @@
 			</radio>
 			<members>
 				<member>
-					28
-				</member>
-				<member>
 					29
 				</member>
 				<member>
 					30
+				</member>
+				<member>
+					31
 				</member>
 			</members>
 		</group>
@@ -834,11 +970,17 @@
 			</radio>
 			<members>
 				<member>
+					8
+				</member>			
+				<member>
 					26
 				</member>
 				<member>
 					27
 				</member>
+				<member>
+					28
+				</member>				
 			</members>
 		</group>
 		<group>
@@ -850,11 +992,17 @@
 			</radio>
 			<members>
 				<member>
-					31
-				</member>
-				<member>
 					32
 				</member>
+				<member>
+					33
+				</member>
+				<member>
+					34
+				</member>
+				<member>
+					35
+				</member>				
 			</members>
 		</group>
 		<group>
@@ -866,7 +1014,10 @@
 			</radio>
 			<members>
 				<member>
-					33
+					36
+				</member>
+				<member>
+					37
 				</member>
 			</members>
 		</group>
