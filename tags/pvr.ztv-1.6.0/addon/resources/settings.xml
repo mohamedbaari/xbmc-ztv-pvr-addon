@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+  <!-- Channels -->
+  <category label="30040">
+    <setting id="chansource" type="enum" label="30000" values="offline|online" default="offline"/>
+	<setting id="groupenable" type="bool" label="30001" default="false"/>
+    <!-- <setting id="pin" type="text" label="30002" default="0000" /> -->
+  </category>
+
+  <!-- EPG -->
+  <category label="30041">
+    <setting id="epgenable" type="bool" label="30003" default="true"/>
+  </category>
+  
+  <!-- Advanced -->
+  <category label="30042">
+  	<setting id="mcastif" type="number" label="30004" default="-1"/>  
+	<setting id="caoffline" type="bool" label="30005" default="false"/>
+    <setting id="ca" type="text" label="30006" default=""/>
+  </category>  
+</settings>
