@@ -307,7 +307,7 @@ PVR_ERROR GetAddonCapabilities(PVR_ADDON_CAPABILITIES* pCapabilities)
   pCapabilities->bSupportsRadio           = true;
   pCapabilities->bSupportsChannelGroups   = true;
   pCapabilities->bSupportsRecordings      = false;
-  pCapabilities->bHandlesInputStream      = true;
+  pCapabilities->bHandlesInputStream      = m_bCaSupport;
 
   return PVR_ERROR_NO_ERROR;
 }
