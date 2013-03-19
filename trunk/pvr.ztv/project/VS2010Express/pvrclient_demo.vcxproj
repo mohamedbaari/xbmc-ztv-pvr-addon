@@ -82,15 +82,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\CircBuffer.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\..\src\client.cpp" />
+    <ClCompile Include="..\..\src\netstream.cpp" />
     <ClCompile Include="..\..\src\LibVLCPlugin.cpp" />
     <ClCompile Include="..\..\src\PVRDemoData.cpp" />
     <ClCompile Include="..\..\src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\CircBuffer.h" />
     <ClInclude Include="..\..\src\client.h" />
+    <ClInclude Include="..\..\src\netstream.h" />
     <ClInclude Include="..\..\src\LibVLCPlugin.h" />
     <ClInclude Include="..\..\src\PVRDemoData.h" />
+    <ClInclude Include="..\..\src\comstream.h" />
     <ClInclude Include="..\..\src\utils.h" />
   </ItemGroup>
   <ItemGroup>

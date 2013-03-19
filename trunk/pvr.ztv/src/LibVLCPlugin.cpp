@@ -22,6 +22,7 @@
 #include <Iphlpapi.h>
 #include <iostream>
 
+#include "comstream.h"
 #include "LibVLCPlugin.h"
 
 using namespace std;
@@ -217,6 +218,11 @@ public:
         int i_seekpoint; //idem, start from 0
         //} info;
         PVOID p_sys;
+
+        static int SysOffset()
+        {
+			return 26;
+        }
     };
 
 	typedef void (*block_free_t) (block_t *);
@@ -274,7 +280,7 @@ public:
         {
             bool result = false;
 
-			int ndx = strMrl.FindOneOf("://");
+			int ndx = strMrl.Find("://");
             if (ndx >= 0)
             {
 				CStdString strAccess = strMrl.Mid(0, ndx);
@@ -818,20 +824,59 @@ IStream* CLibVLCModule::NewAccess(const CStdString& strMrl)
 }
 
 
-
-class CAUDPStream : public IStream
+class CAUDPStream : public ComImplStream
 {
 
 friend class CLibVLCAccess;
 
 	CAUDPStream(CLibVLCAccess::access_t* ptrAccess, CLibVLCAccess::FAccessDelete funcAccessDelete)
 	{
-        _refcount = 1;
         if (NULL != ptrAccess->pf_block)
         {
             _AccessVLCObject = ptrAccess;
             _funcAccessDelete = funcAccessDelete;
             _funcReadBlock = ptrAccess->pf_block;
+
+            PINT pSysObject = reinterpret_cast<PINT>(ptrAccess) + CLibVLCAccess::access_t::SysOffset();
+			if ('c' == ptrAccess->psz_access[0] && 'a' == ptrAccess->psz_access[1] && '\0' == ptrAccess->psz_access[2])
+            {
+                PINT pUdpObject = *reinterpret_cast<PINT*>(pSysObject);
+                pUdpObject = *reinterpret_cast<PINT*>(pUdpObject);
+                _udpSocket = *reinterpret_cast<SOCKET*>(pUdpObject + CLibVLCAccess::access_t::SysOffset());
+            }
+            else
+            {
+                _udpSocket = *reinterpret_cast<SOCKET*>(pSysObject);
+            }
+
+			//int nTimeout = 3000; // 3 seconds
+			//if (SOCKET_ERROR == setsockopt(_udpSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&nTimeout, sizeof(int)))
+			//{
+				//throw system_error(static_cast<error_code::value_type>(WSAGetLastError()), system_category(), "Error setting socket SO_RCVTIMEO opts.");
+				//fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+			//}
+
+			fd_set fds;
+			struct timeval tv={0};
+
+			// Set up the file descriptor set.
+			FD_ZERO(&fds) ;
+			FD_SET(_udpSocket, &fds) ;
+
+			// Set up the struct timeval for the timeout.
+			tv.tv_sec = 14;
+
+			// Wait until timeout or data received.
+			int rc = select ( _udpSocket, &fds, NULL, NULL, &tv ) ;
+			if (!rc)
+			{
+				SetLastError(WSAETIMEDOUT);
+				throw system_error(static_cast<error_code::value_type>(GetLastError()), system_category(), "Initial read operation timed out.");
+			}
+			else if( SOCKET_ERROR == rc )
+			{
+				throw system_error(static_cast<error_code::value_type>(WSAGetLastError()), system_category(), "Initial read operation error.");
+			}
         }
         else
         {
@@ -852,34 +897,9 @@ friend class CLibVLCAccess;
 			_AccessVLCObject = NULL;
 			_funcAccessDelete = NULL;
 			_funcReadBlock = NULL;
+			_udpSocket = INVALID_SOCKET;
 		}
 	}
-public:
-    virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void ** ppvObject)
-    { 
-        if (iid == __uuidof(IUnknown)
-            || iid == __uuidof(IStream)
-            || iid == __uuidof(ISequentialStream))
-        {
-            *ppvObject = static_cast<IStream*>(this);
-            AddRef();
-            return S_OK;
-        } else
-            return E_NOINTERFACE; 
-    }
-
-    virtual ULONG STDMETHODCALLTYPE AddRef(void) 
-    { 
-        return (ULONG)InterlockedIncrement(&_refcount); 
-    }
-
-    virtual ULONG STDMETHODCALLTYPE Release(void) 
-    {
-        ULONG res = (ULONG) InterlockedDecrement(&_refcount);
-        if (res == 0) 
-            delete this;
-        return res;
-    }
 
     // ISequentialStream Interface
 public:
@@ -926,60 +946,6 @@ public:
 		return hr;
     }
 
-    virtual HRESULT STDMETHODCALLTYPE Write(void const* pv, ULONG cb, ULONG* pcbWritten)
-    {
-        return E_NOTIMPL;
-	}
-
-    // IStream Interface
-public:
-    virtual HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER)
-    { 
-        return E_NOTIMPL;   
-    }
-    
-    virtual HRESULT STDMETHODCALLTYPE CopyTo(IStream*, ULARGE_INTEGER, ULARGE_INTEGER*,
-        ULARGE_INTEGER*) 
-    { 
-        return E_NOTIMPL;   
-    }
-    
-    virtual HRESULT STDMETHODCALLTYPE Commit(DWORD)                                      
-    { 
-        return E_NOTIMPL;   
-    }
-    
-    virtual HRESULT STDMETHODCALLTYPE Revert(void)                                       
-    { 
-        return E_NOTIMPL;   
-    }
-    
-    virtual HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER, ULARGE_INTEGER, DWORD)              
-    { 
-        return E_NOTIMPL;   
-    }
-    
-    virtual HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER, ULARGE_INTEGER, DWORD)            
-    { 
-        return E_NOTIMPL;   
-    }
-    
-    virtual HRESULT STDMETHODCALLTYPE Clone(IStream **)                                  
-    { 
-        return E_NOTIMPL;   
-    }
-
-    virtual HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER liDistanceToMove, DWORD dwOrigin,
-        ULARGE_INTEGER* lpNewFilePointer)
-    { 
-        return E_NOTIMPL;
-	}
-
-    virtual HRESULT STDMETHODCALLTYPE Stat(STATSTG* pStatstg, DWORD grfStatFlag) 
-    {
-        return E_NOTIMPL;
-	}
-
 protected:
 
 	int ReadBuffer(PBYTE buffer, int offset, int count)
@@ -1018,12 +984,12 @@ protected:
 
 private:
 	typedef CLibVLCAccess::block_t* PBLOCK;
-	
-	LONG _refcount;
 
 	CLibVLCAccess::access_t* _AccessVLCObject;
 	CLibVLCAccess::FAccessDelete _funcAccessDelete;
 	CLibVLCAccess::block_t* (* _funcReadBlock)( CLibVLCAccess::access_t * );
+
+	SOCKET _udpSocket;
 
 	PBLOCK _pLastBlock;
 	int _LastBlockOffset;
@@ -1102,12 +1068,21 @@ IStream* CLibVLCAccess::OpenMRL(string strMrl)
 
     if (NULL != pAccess)
     {
-        stream = new CAUDPStream(pAccess, _funcAccessDelete);
+		try
+		{
+			stream = new CAUDPStream(pAccess, _funcAccessDelete);
+		}
+		catch(const exception& excp)
+		{
+			XBMC->Log(LOG_ERROR, "Open udp stream (%s) failed, error: %s", strMrl.c_str(), excp.what());
+			_funcAccessDelete(pAccess);
+		}
     }
     else
     {
         //throw new System.ArgumentNullException("pAccess");
-		throw system_error(static_cast<error_code::value_type>(-1), system_category(), "pAccess");
+		//throw system_error(static_cast<error_code::value_type>(-1), system_category(), "pAccess");
+		XBMC->Log(LOG_ERROR, "Object of stream access is null.");
     }
 
     return stream;

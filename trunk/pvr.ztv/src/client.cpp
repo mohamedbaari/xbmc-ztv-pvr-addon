@@ -25,6 +25,8 @@
 #include "PVRDemoData.h"
 #include "platform/util/util.h"
 
+#define TARGET_WINDOWS
+
 using namespace std;
 using namespace ADDON;
 
@@ -35,12 +37,21 @@ using namespace ADDON;
 enum EChannelSource
 {
   offline = 0,
-  online  = 1,
+  online,
+  m3u,
 };
 
-const EChannelSource DEF_CHANNEL_SOURCE = EChannelSource::online;
+enum EM3uType
+{
+  file = 0,
+  url,
+};
+
+const EChannelSource DEF_CHANNEL_SOURCE = EChannelSource::offline;
+const EM3uType DEF_CHANNEL_TYPE = EM3uType::file;
 const char* DEF_CA_TEXT           = "";
-const unsigned long DEF_MCASTIF   = -1;
+const char* DEF_M3U_TEXT          = "special://home/addons/pvr.ztv/iptv.m3u";
+const char* DEF_MCASTIF           = "255.255.255.255";
 const bool  DEF_ENABLE_ONLINE_GRP = true;
 const bool  DEF_ENABLE_ONLINE_EPG = true;
 const bool  DEF_ENABLE_OFFLINE_CA = false;
@@ -60,8 +71,10 @@ string g_strUserPath             = "";
 string g_strClientPath           = "";
 
 EChannelSource g_eChannelSource       = DEF_CHANNEL_SOURCE;
+EM3uType g_eChannelType               = DEF_CHANNEL_TYPE;
 string g_strCaText                    = DEF_CA_TEXT;
-unsigned long g_ulMCastIf             = DEF_MCASTIF;
+string g_strM3uText                   = DEF_M3U_TEXT;
+string g_strMCastIf                   = DEF_MCASTIF;
 bool g_bEnableOnLineGroups            = DEF_ENABLE_ONLINE_GRP;
 bool g_bEnableOnLineEpg               = DEF_ENABLE_ONLINE_EPG;
 bool g_bEnableOffLineCa               = DEF_ENABLE_OFFLINE_CA;
@@ -86,6 +99,45 @@ void ADDON_ReadSettings(void)
     /* If setting is unknown fallback to defaults */
     XBMC->Log(LOG_ERROR, "Couldn't get 'chansource' setting, falling back to 'online' as default");
 	g_eChannelSource = DEF_CHANNEL_SOURCE;
+  }
+
+  if(EChannelSource::m3u == g_eChannelSource)
+  {
+	  if (!XBMC->GetSetting("m3utype", &g_eChannelType))
+	  { 
+		/* If setting is unknown fallback to defaults */
+		XBMC->Log(LOG_ERROR, "Couldn't get 'm3utype' setting, falling back to 'file' as default");
+		g_eChannelType = DEF_CHANNEL_TYPE;
+	  }
+
+	  if(EM3uType::file == g_eChannelType)
+	  {
+		  /* Read setting "filem3u" from settings.xml */
+		  if (XBMC->GetSetting("filem3u", &buffer))
+		  { 
+			g_strM3uText = buffer;
+		  }
+		  else
+		  {
+			/* If setting is unknown fallback to defaults */
+			XBMC->Log(LOG_ERROR, "Couldn't get 'filem3u' setting, falling back to 'localhost' as default");
+			g_strM3uText = DEF_M3U_TEXT;
+		  }
+	  }
+	  else
+	  {
+		  /* Read setting "urlm3u" from settings.xml */
+		  if (XBMC->GetSetting("urlm3u", &buffer))
+		  { 
+			g_strM3uText = buffer;
+		  }
+		  else
+		  {
+			/* If setting is unknown fallback to defaults */
+			XBMC->Log(LOG_ERROR, "Couldn't get 'urlm3u' setting, falling back to 'localhost' as default");
+			g_strM3uText = DEF_M3U_TEXT;
+		  }
+	  }
   }
 
   /* Read setting "groupenable" from settings.xml */
@@ -135,15 +187,19 @@ void ADDON_ReadSettings(void)
   }
 
   /* Read setting "mcastif" from settings.xml */
-  if (!XBMC->GetSetting("mcastif", &g_ulMCastIf))
+  if (XBMC->GetSetting("mcastif", &buffer))//&g_ulMCastIf))
+  {
+	g_strMCastIf = buffer;
+  }
+  else
   {
     /* If setting is unknown fallback to defaults */
-    XBMC->Log(LOG_ERROR, "Couldn't get 'mcastif' setting, falling back to '-1' as default");
-    g_ulMCastIf = DEF_MCASTIF;
+    XBMC->Log(LOG_ERROR, "Couldn't get 'mcastif' setting, falling back to '255.255.255.255' as default");
+    g_strMCastIf = DEF_MCASTIF;
   }
 
   /* Log the current settings for debugging purposes */
-  XBMC->Log(LOG_DEBUG, "settings: chansource='%u', groupenable=%u, epgenable=%u", g_eChannelSource, g_bEnableOnLineGroups, g_bEnableOnLineEpg);
+  XBMC->Log(LOG_DEBUG, "settings: chansource='%u', epgenable=%u", g_eChannelSource, g_bEnableOnLineEpg);
 }
 
 ADDON_STATUS ADDON_Create(void* hdl, void* props)
@@ -176,11 +232,11 @@ ADDON_STATUS ADDON_Create(void* hdl, void* props)
 
   ADDON_ReadSettings();
 
-  m_data = new PVRDemoData(g_bEnableOnLineEpg);
+  m_data = new PVRDemoData(g_bEnableOnLineEpg, g_strMCastIf.c_str());
   bool bIsOnLine = (EChannelSource::online == g_eChannelSource);
   if(bIsOnLine || g_bEnableOffLineCa)
   {
-	m_bCaSupport = m_data->VLCInit(g_strCaText.c_str(), g_ulMCastIf);
+	m_bCaSupport = m_data->VLCInit(g_strCaText.c_str());
 
 	if(!m_bCaSupport)
 	{
@@ -190,7 +246,12 @@ ADDON_STATUS ADDON_Create(void* hdl, void* props)
 
   if(ADDON_STATUS_UNKNOWN == m_CurStatus)
   {
-	  bool bSuccess = m_data->LoadChannelsData(bIsOnLine, g_bEnableOnLineGroups);
+	  string strM3uPath;
+	  if(EChannelSource::m3u == g_eChannelSource)
+	  {
+		  strM3uPath = g_strM3uText;
+	  }
+	  bool bSuccess = m_data->LoadChannelsData(strM3uPath, bIsOnLine, g_bEnableOnLineGroups);
       m_CurStatus = (bSuccess)?ADDON_STATUS_OK:ADDON_STATUS_LOST_CONNECTION;
   }
 
@@ -265,8 +326,8 @@ ADDON_STATUS ADDON_SetSetting(const char *settingName, const void *settingValue)
   }
   else if (str == "mcastif")
   {
-    XBMC->Log(LOG_INFO, "Changed setting 'mcastif' from %u to %u", g_ulMCastIf, *(unsigned long*) settingValue);
-    g_ulMCastIf = *(unsigned long*) settingValue;
+	  XBMC->Log(LOG_INFO, "Changed setting 'mcastif' from %s to %s", g_strMCastIf.c_str(), (const char*) settingValue);
+    g_strMCastIf = (const char*) settingValue;
   }
 
   return ADDON_STATUS_NEED_RESTART;
@@ -284,6 +345,10 @@ void ADDON_FreeSettings()
 {
 }
 
+//void ADDON_Announce(const char *flag, const char *sender, const char *message, const void *data)
+//{
+//}
+
 /***********************************************************
  * PVR Client AddOn specific public library functions
  ***********************************************************/
@@ -300,6 +365,19 @@ const char* GetMininumPVRAPIVersion(void)
   return strMinApiVersion;
 }
 
+//const char* GetGUIAPIVersion(void)
+//{
+  //static const char *strGuiApiVersion = XBMC_GUI_API_VERSION;
+  //return strGuiApiVersion;
+//}
+
+//const char* GetMininumGUIAPIVersion(void)
+//{
+  //static const char *strMinGuiApiVersion = XBMC_GUI_MIN_API_VERSION;
+  //return strMinGuiApiVersion;
+//}
+
+
 PVR_ERROR GetAddonCapabilities(PVR_ADDON_CAPABILITIES* pCapabilities)
 {
   pCapabilities->bSupportsEPG             = true;
@@ -307,14 +385,14 @@ PVR_ERROR GetAddonCapabilities(PVR_ADDON_CAPABILITIES* pCapabilities)
   pCapabilities->bSupportsRadio           = true;
   pCapabilities->bSupportsChannelGroups   = true;
   pCapabilities->bSupportsRecordings      = false;
-  pCapabilities->bHandlesInputStream      = m_bCaSupport;
+  pCapabilities->bHandlesInputStream      = true;
 
   return PVR_ERROR_NO_ERROR;
 }
 
 const char *GetBackendName(void)
 {
-  static const char *strBackendName = "ztv pvr add-on";
+  static const char *strBackendName = "ViPetroFF ztv pvr add-on";
   return strBackendName;
 }
 
@@ -439,10 +517,24 @@ int GetCurrentClientChannel()
 
 const char * GetLiveStreamURL(const PVR_CHANNEL &channel)
 {
+  //if (!m_data)
+    //return "";
+  //else
+    //return m_data->GetLiveStreamURL(channel);
+
+  return NULL;
+}
+
+bool CanPauseStream(void)
+{
   if (!m_data)
-    return "";
+    return false;
   else
-    return m_data->GetLiveStreamURL(channel);
+    return m_data->CanPauseStream();
+}
+
+void PauseStream(bool bPaused)
+{
 }
 
 PVR_ERROR GetStreamProperties(PVR_STREAM_PROPERTIES* pProperties)
@@ -524,6 +616,7 @@ PVR_ERROR RenameRecording(const PVR_RECORDING &recording) { return PVR_ERROR_NOT
 PVR_ERROR SetRecordingPlayCount(const PVR_RECORDING &recording, int count) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR SetRecordingLastPlayedPosition(const PVR_RECORDING &recording, int lastplayedposition) { return PVR_ERROR_NOT_IMPLEMENTED; }
 int GetRecordingLastPlayedPosition(const PVR_RECORDING &recording) { return -1; }
+//PVR_ERROR GetRecordingEdl(const PVR_RECORDING&, PVR_EDL_ENTRY[], int*) { return PVR_ERROR_NOT_IMPLEMENTED; };
 int GetTimersAmount(void) { return -1; }
 PVR_ERROR GetTimers(ADDON_HANDLE handle) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR AddTimer(const PVR_TIMER &timer) { return PVR_ERROR_NOT_IMPLEMENTED; }
@@ -532,8 +625,8 @@ PVR_ERROR UpdateTimer(const PVR_TIMER &timer) { return PVR_ERROR_NOT_IMPLEMENTED
 void DemuxAbort(void) {}
 DemuxPacket* DemuxRead(void) { return NULL; }
 unsigned int GetChannelSwitchDelay(void) { return 0; }
-void PauseStream(bool bPaused) {}
-bool CanPauseStream(void) { return false; }
+//void PauseStream(bool bPaused) {}
+//bool CanPauseStream(void) { return false; }
 bool CanSeekStream(void) { return false; }
 bool SeekTime(int,bool,double*) { return false; }
 void SetSpeed(int) {};

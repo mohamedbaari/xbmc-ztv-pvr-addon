@@ -2,8 +2,12 @@
 <settings>
   <!-- Channels -->
   <category label="30040">
-    <setting id="chansource" type="enum" label="30000" values="offline|online" default="offline"/>
-	<setting id="groupenable" type="bool" label="30001" default="false"/>
+    <setting id="chansource" type="enum" label="30000" values="offline|online|m3u" default="offline"/>
+	<setting id="groupenable" type="bool" label="30001" default="true" visible="!eq(-1,2)" enable="eq(-1,1)"/>
+	<setting id="sepm3u" label="30010" type="lsep" visible="eq(-2,2)"/>	
+	<setting id="m3utype" type="enum" label="30009" values="file|url" default="file" visible="eq(-3,2)" enable="eq(-3,2)"/>
+	<setting id="filem3u" type="file" label="30008" default="special://home/addons/pvr.ztv/iptv.m3u" mask="*.m3u|*.m3u8" visible="eq(-4,2)" enable="eq(-1,0)"/>	
+    <setting id="urlm3u" type="text" label="30007" default="http://localhost:7781/iptv.m3u" visible="eq(-5,2)" enable="eq(-2,1)"/>
     <!-- <setting id="pin" type="text" label="30002" default="0000" /> -->
   </category>
 
@@ -14,8 +18,8 @@
   
   <!-- Advanced -->
   <category label="30042">
-  	<setting id="mcastif" type="number" label="30004" default="-1"/>  
+  	<setting id="mcastif" type="ipaddress" label="30004" default="255.255.255.255"/>  
 	<setting id="caoffline" type="bool" label="30005" default="false"/>
-    <setting id="ca" type="text" label="30006" default=""/>
+    <setting id="ca" type="text" label="30006" default="" option="hidden"/>
   </category>  
 </settings>

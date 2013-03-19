@@ -1,0 +1,311 @@
+#EXTM3U cache=200 playlist=1 deinterlace=1 aspect-ratio=4:3 url-tvg="http://www.teleguide.info/download/new3/jtv.zip" m3uautoload=1
+#EXTINF:-1     group-title="Общие"  aspect-ratio=16:9 tvg-logo="Первый" tvg-name="Первый_канал",Первый канал
+udp://@235.10.10.201:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Первый" tvg-name="Первый_HD",Первый канал HD
+udp://@235.10.10.210:1234
+#EXTINF:-1     tvg-logo="Россия" tvg-name="Россия_1",Россия
+udp://@235.10.10.202:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Россия" tvg-name="Россия_HD",Россия HD
+udp://@235.10.10.117:1234
+#EXTINF:-1     tvg-logo="ТВ3" tvg-name="ТВ-3",ТВ3
+udp://@235.10.10.156:1234
+#EXTINF:-1     tvg-logo="НТВ" tvg-name="НТВ",НТВ
+udp://@235.10.10.11:1234
+#EXTINF:-1     tvg-logo="Пятый" tvg-name="Пятый_Канал",Петербург 5 канал
+udp://@235.10.10.12:1234
+#EXTINF:-1     tvg-logo="СТС" tvg-name="СТС",СТС
+udp://@235.10.10.205:1234
+#EXTINF:-1     tvg-logo="ТВ Центр" tvg-name="ТВ-Центр-Международное",ТВ Центр
+udp://@235.10.10.18:1234
+#EXTINF:-1     tvg-logo="Домашний" tvg-name="Домашний",Домашний
+udp://@235.10.10.6:1234
+#EXTINF:-1     tvg-logo="Россия К" tvg-name="Россия_Культура",Россия Культура
+udp://@235.10.10.9:1234
+#EXTINF:-1     tvg-logo="ТНТ" tvg-name="ТНТ",ТНТ
+udp://@235.10.10.206:1234
+#EXTINF:-1     tvg-logo="2x2" tvg-name="Канал_2x2",2X2
+udp://@235.10.10.20:1234
+#EXTINF:-1     tvg-logo="Звезда" tvg-name="Звезда",Звезда
+ca://@235.10.10.178:1234
+#EXTINF:-1     tvg-logo="Перец" tvg-name="Перец",Перец
+udp://@235.10.10.7:1234
+#EXTINF:-1     group-title="Новостные"  tvg-logo="Россия 24" tvg-name="Россия_24",Россия 24
+udp://@235.10.10.8:1234
+#EXTINF:-1     aspect-ratio=16:9 audio-track=6 tvg-logo="Euronews" tvg-name="EuroNews",Euronews
+ca://@235.10.10.52:1234
+#EXTINF:-1     tvg-logo="CNN" tvg-name="CNN_International",CNN International
+ca://@235.10.10.55:1234
+#EXTINF:-1     deinterlace=4 aspect-ratio=16:9 tvg-logo="РБК" tvg-name="РБК",РБК
+ca://@235.10.10.50:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="BBC World" tvg-name="BBC_World",BBC World
+ca://@235.10.10.51:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="France 24" tvg-name="France_24",France 24
+ca://@235.10.10.53:1234
+#EXTINF:-1     tvg-logo="Russia Today" tvg-name="Russia_Today",Russia Today HD
+udp://@235.10.10.49:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Дождь" tvg-name="Дождь",Дождь
+udp://@235.10.10.186:1234
+#EXTINF:-1     group-title="Познавательные"  tvg-logo="TLC" tvg-name="TLC",TLC
+ca://@235.10.10.30:1234
+#EXTINF:-1     tvg-logo="Discovery World" tvg-name="Discovery_World",Discovery World
+ca://@235.10.10.31:1234
+#EXTINF:-1     tvg-logo="Discovery" tvg-name="Discovery",Discovery Channel
+ca://@235.10.10.33:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Discovery" tvg-name="Discovery_HD",Discovery Showcase HD
+ca://@235.10.10.106:1234
+#EXTINF:-1     tvg-logo="Discovery Science" tvg-name="Discovery_Science",Discovery Science
+ca://@235.10.10.32:1234
+#EXTINF:-1     tvg-logo="Discovery ID" tvg-name="Investigation_Discovery",Discovery ID
+ca://@235.10.10.44:1234
+#EXTINF:-1     tvg-logo="Наука 2.0" tvg-name="Наука_2.0",Наука 2.0
+ca://@235.10.10.174:1234
+#EXTINF:-1     tvg-logo="24 Техно" tvg-name="24_Техно",24 Техно
+ca://@235.10.10.40:1234
+#EXTINF:-1     tvg-logo="National Geographic" tvg-name="National_Geographic",National Geographic
+ca://@235.10.10.43:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="National Geographic" tvg-name="National_Geographic_HD",National Geographic HD
+ca://@235.10.10.102:1234
+#EXTINF:-1     tvg-logo="Viasat Explorer" tvg-name="Viasat_Explorer",Viasat Explorer
+ca://@235.10.10.114:1234
+#EXTINF:-1     group-title="Путешествия"  tvg-logo="Моя планета" tvg-name="Моя_Планета",Моя планета
+ca://@235.10.10.42:1234
+#EXTINF:-1     tvg-logo="Телепутешествия" tvg-name="Телепутешествия",Телепутешествия
+ca://@235.10.10.35:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Travel channel" ,Travel Channel HD
+ca://@235.10.10.169:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Телепутешествия" ,Телепутешествия HD
+ca://@235.10.10.84:1234
+#EXTINF:-1     group-title="История"  tvg-logo="365 дней" tvg-name="365_Дней",365 дней
+ca://@235.10.10.181:1234
+#EXTINF:-1     tvg-logo="Viasat History" tvg-name="Viasat_History",Viasat History
+ca://@235.10.10.115:1234
+#EXTINF:-1     tvg-logo="Кто есть кто" tvg-name="Кто_есть_кто",Кто есть кто
+ca://@235.10.10.38:1234
+#EXTINF:-1     tvg-logo="Время" tvg-name="ВРЕМЯ:_далекое_и_близкое",Время далекое и близкое
+udp://@235.10.10.2:1234
+#EXTINF:-1     group-title="Кино"  tvg-logo="SET" tvg-name="Set",S.E.T.
+ca://@235.10.10.89:1234
+#EXTINF:-1     tvg-logo="AXN Sci-Fi" tvg-name="AXN_Sci-fi",AXN SCi-Fi
+ca://@235.10.10.69:1234
+#EXTINF:-1     tvg-logo="Fox" tvg-name="Fox_Crime",Fox
+ca://@235.10.10.75:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Fox" tvg-name="Fox_Crime",Fox HD
+ca://@235.10.10.103:1234
+#EXTINF:-1     tvg-logo="Fox Life" tvg-name="Fox_Life",FOX Life
+ca://@235.10.10.76:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="FOX Life" tvg-name="Fox_Life_HD",Fox Life HD
+ca://@235.10.10.104:1234
+#EXTINF:-1     tvg-logo="MGM" tvg-name="MGM",MGM
+ca://@235.10.10.67:1234
+#EXTINF:-1     tvg-logo="Universal" tvg-name="Universal_Channel",Universal Channel
+ca://@235.10.10.54:1234
+#EXTINF:-1     tvg-logo="Телеклуб" tvg-name="Телеклуб",Детский мир - Телеклуб
+ca://@235.10.10.59:1234
+#EXTINF:-1     tvg-logo="Еврокино" tvg-name="Еврокино",Еврокино
+ca://@235.10.10.150:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Кинолюкс" tvg-name="КИНОЛЮКС",Кинолюкс
+ca://@235.10.10.95:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Кинопоказ" tvg-name="Кинопоказ",Кинопоказ
+ca://@235.10.10.72:1234
+#EXTINF:-1     tvg-logo="TV1000 Русское кино" tvg-name="ТВ-1000_Русское_кино",TV 1000 Русское кино
+ca://@235.10.10.111:1234
+#EXTINF:-1     tvg-logo="TV1000" tvg-name="TV1000",TV 1000
+ca://@235.10.10.113:1234
+#EXTINF:-1     tvg-logo="TV1000 Action" tvg-name="TV_1000_Action",TV 1000 Action
+ca://@235.10.10.112:1234
+#EXTINF:-1     tvg-logo="Дом Кино" tvg-name="Дом_кино",Дом Кино
+ca://@235.10.10.74:1234
+#EXTINF:-1     tvg-logo="Иллюзион" tvg-name="Иллюзион_+",Иллюзион +
+ca://@235.10.10.70:1234
+#EXTINF:-1     tvg-logo="Комедия ТВ" tvg-name="Комедия_ТВ",Комедия ТВ
+ca://@235.10.10.68:1234
+#EXTINF:-1     tvg-logo="Русский Иллюзион" tvg-name="Русский_Иллюзион",Русский Иллюзион
+ca://@235.10.10.66:1234
+#EXTINF:-1     group-title="Музыка"  aspect-ratio=16:9 tvg-logo="MCM Top" tvg-name="MCM_Top",MCM Top
+ca://@235.10.10.78:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="MTV",MTV Live HD
+udp://@235.10.10.121:1234
+#EXTINF:-1     tvg-logo="MTV" tvg-name="MTV-Russia",MTV Russia
+udp://@235.10.10.5:1234
+#EXTINF:-1     tvg-logo="A-One" tvg-name="A-ONE",A-One
+ca://@235.10.10.85:1234
+#EXTINF:-1     tvg-logo="music box ru" tvg-name="Music_Box_RU",Music Box RU
+ca://@235.10.10.175:1234
+#EXTINF:-1     ,Europa plus TV
+ca://@235.10.10.162:1234
+#EXTINF:-1     tvg-logo="Bridge tv" tvg-name="Bridge_TV",Bridge TV
+ca://@235.10.10.86:1234
+#EXTINF:-1     tvg-logo="VH 1" tvg-name="VH1-Russia",VH1
+ca://@235.10.10.80:1234
+#EXTINF:-1     tvg-logo="Ю ТВ" tvg-name="Ю-ТВ",Ю
+udp://@235.10.10.10:1234
+#EXTINF:-1     tvg-logo="Mezzo" tvg-name="Mezzo",Mezzo
+ca://@235.10.10.79:1234
+#EXTINF:-1     tvg-logo="RuTV" tvg-name="RU.TV",RU.TV
+ca://@235.10.10.83:1234
+#EXTINF:-1     tvg-logo="Rusong TV" tvg-name="Rusong_TV",Rusong TV
+ca://@235.10.10.182:1234
+#EXTINF:-1     tvg-logo="Музыка Первого" tvg-name="Музыка_Первого",Музыка Первого
+ca://@235.10.10.82:1234
+#EXTINF:-1     group-title="Про зверушек"  tvg-logo="Animal Planet" tvg-name="Animal_Planet",Animal Planet
+ca://@235.10.10.29:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Nat Geo Wild HD" tvg-name="Nat_Geo_Wild_HD",Nat Geo Wild HD
+ca://@235.10.10.101:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Animal Planet" tvg-name="Animal_Planet_HD",Animal planet HD
+ca://@235.10.10.107:1234
+#EXTINF:-1     tvg-logo="Nat Geo WILD" tvg-name="Nat_Geo_WILD",Nat Geo Wild
+ca://@235.10.10.189:1234
+#EXTINF:-1     tvg-logo="ZOOпарк" tvg-name="Зоопарк",ZooПАРК
+ca://@235.10.10.151:1234
+#EXTINF:-1     tvg-logo="ZooTV" tvg-name="Зоо_ТВ",Зоо ТВ
+ca://@235.10.10.46:1234
+#EXTINF:-1     group-title="Мультики и детские"  tvg-logo="Cartoon Network" tvg-name="Cartoon_Network",Cartoon Network
+ca://@235.10.10.77:1234
+#EXTINF:-1     tvg-logo="Disney Channel" tvg-name="Disney_Channel",Disney Channel
+ca://@235.10.10.63:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Nickelodeon" tvg-name="Nickelodeon",Nickelodeon
+ca://@235.10.10.62:1234
+#EXTINF:-1     tvg-logo="Teen" tvg-name="Teen TV",Teen TV
+ca://@235.10.10.65:1234
+#EXTINF:-1     tvg-logo="Детский" tvg-name="Детский_канал",Детский
+ca://@235.10.10.61:1234
+#EXTINF:-1     tvg-logo="Карусель" tvg-name="Карусель",Карусель
+udp://@235.10.10.64:1234
+#EXTINF:-1     tvg-logo="Мультимания" tvg-name="Мультимания",Мультимания
+ca://@235.10.10.58:1234
+#EXTINF:-1     group-title="Региональные"  tvg-logo="Первый" tvg-name="Первый_канал",Первый канал
+udp://@235.10.10.1:1234
+#EXTINF:-1     tvg-logo="Россия" tvg-name="Россия_1",Россия
+udp://@235.10.10.14:1234
+#EXTINF:-1     tvg-logo="Пятый" tvg-name="Пятый_Канал",Петербург 5 канал
+udp://@235.10.10.12:1234
+#EXTINF:-1     tvg-logo="СТС" tvg-name="СТС",СТС
+udp://@235.10.10.16:1234
+#EXTINF:-1     tvg-logo="РЕН-ТВ" tvg-name="РЕН_ТВ",РЕН ТВ
+udp://@235.10.10.158:1234
+#EXTINF:-1     tvg-logo="ТНТ" tvg-name="ТНТ",ТНТ
+udp://@235.10.10.19:1234
+#EXTINF:-1     tvg-logo="100 ТВ" tvg-name="СТО",100 ТВ
+udp://@235.10.10.179:1234
+#EXTINF:-1     tvg-logo="БСТ" tvg-name="БСТ",БСТ
+udp://@235.10.10.3:1234
+#EXTINF:-1     tvg-logo="Восьмой" tvg-name="8_Канал",Восьмой канал
+udp://@235.10.10.194:1234
+#EXTINF:-1     tvg-logo="ВОТ" tvg-name="",ВОТ
+udp://@235.10.10.192:1234
+#EXTINF:-1     tvg-logo="Мир" tvg-name="МИР",Мир
+ca://@235.10.10.36:1234
+#EXTINF:-1     tvg-logo="Страна" tvg-name="Страна",Страна
+ca://@235.10.10.188:1234
+#EXTINF:-1     tvg-logo="Татарстан" tvg-name="Татарстан_-_Новый_Век",Татарстан
+udp://@235.10.10.41:1234
+#EXTINF:-1     tvg-logo="ТРО" tvg-name="ТРО",ТРО
+udp://@235.10.10.195:1234
+#EXTINF:-1     tvg-logo="CCTV" tvg-name="CCTV-русский",CCTV 4 Europe
+udp://@235.10.10.94:1234
+#EXTINF:-1     group-title="Спорт"  tvg-logo="Eurosport" tvg-name="Eurosport",Eurosport
+ca://@235.10.10.24:1234
+#EXTINF:-1     tvg-logo="Eurosport 2" tvg-name="Eurosport_2",Eurosport 2
+ca://@235.10.10.25:1234
+#EXTINF:-1     tvg-logo="Eurosport News" ,Eurosport News
+ca://@235.10.10.22:1234
+#EXTINF:-1     tvg-logo="Extreme Sports" tvg-name="Extreme_Sports",Extreme Sports
+ca://@235.10.10.28:1234
+#EXTINF:-1     tvg-logo="Viasat Sport" tvg-name="Viasat_Sport",Viasat Sport
+ca://@235.10.10.116:1234
+#EXTINF:-1     tvg-logo="Бойцовский Клуб" tvg-name="Бойцовский_клуб",Бойцовский клуб
+ca://@235.10.10.196:1234
+#EXTINF:-1     tvg-logo="КХЛ-ТВ" tvg-name="КХЛ-ТВ",КХЛ
+ca://@235.10.10.185:1234
+#EXTINF:-1     tvg-logo="КХЛ-ТВ" tvg-name="КХЛ-ТВ",КХЛ HD
+ca://@235.10.10.109:1234
+#EXTINF:-1     tvg-logo="Россия 2" tvg-name="Россия_2_(Спорт)",Россия 2
+udp://@235.10.10.15:1234
+#EXTINF:-1     tvg-logo="Русский ЭКСТРИМ" tvg-name="Русский_Экстрим",Русский Экстрим
+ca://@235.10.10.26:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Спорт 1 HD" tvg-name="Спорт_1_(HD)",Спорт 1 HD
+ca://@235.10.10.172:1234
+#EXTINF:-1     tvg-logo="Спорт 2" tvg-name="Спорт_2",Спорт 2
+ca://@235.10.10.173:1234
+#EXTINF:-1     tvg-logo="Боец" tvg-name="Боец",Боец
+ca://@235.10.10.27:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9,Trace Sports HD
+udp://@235.10.10.110:1234
+#EXTINF:-1     group-title="Всякая фигня"  tvg-logo="CCTV" ,CCTV 9 Documentary
+udp://@235.10.10.93:1234
+#EXTINF:-1     tvg-logo="Fashion TV" tvg-name="Fashion_TV",Fashion TV
+ca://@235.10.10.45:1234
+#EXTINF:-1     tvg-logo="World Fashion Channel" tvg-name="World_Fashion_Channel_(рус.)",World Fashion Channel
+ca://@235.10.10.48:1234
+#EXTINF:-1     tvg-logo="Zee tv" tvg-name="Zee_TV",ZEE TV
+ca://@235.10.10.73:1234
+#EXTINF:-1     tvg-logo="Авто Плюс" tvg-name="Авто_Плюс",Авто Плюс
+ca://@235.10.10.23:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Загородный" ,Загородный
+ca://@235.10.10.99:1234
+#EXTINF:-1     tvg-logo="Охота и Рыбалка" tvg-name="Охота_и_рыбалка",Охота и рыбалка
+ca://@235.10.10.34:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9,Охотник и рыболов HD
+udp://@235.10.10.119:1234
+#EXTINF:-1     tvg-logo="Сарафан ТВ" tvg-name="Сарафан_ТВ",Сарафан
+ca://@235.10.10.191:1234
+#EXTINF:-1     tvg-logo="Zone Romantica" tvg-name="ZONE_Romantica",Zone Romantica
+ca://@235.10.10.71:1234
+#EXTINF:-1     group-title="Совсем фигня"  tvg-logo="9 волна" ,9 Волна
+ca://@235.10.10.98:1234
+#EXTINF:-1     tvg-logo="Живи" tvg-name="Живи",Живи
+ca://@235.10.10.39:1234
+#EXTINF:-1     tvg-logo="Союз" tvg-name="Союз",Союз
+ca://@235.10.10.37:1234
+#EXTINF:-1     tvg-logo="СПАС" tvg-name="Спас_ТВ",Спас
+ca://@235.10.10.193:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="PIKTV",Первый Интернет Канал HD
+udp://@235.10.10.100:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9,myZen.tv HD
+udp://@235.10.10.120:1234
+#EXTINF:-1     group-title="HD-каналы"  aspect-ratio=16:9 tvg-logo="Первый" tvg-name="Первый_HD",Первый канал HD
+udp://@235.10.10.210:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="National Geographic" tvg-name="National_Geographic_HD",National Geographic HD
+ca://@235.10.10.102:1234
+#EXTINF:-1     aspect-ratio=16:9 tvg-logo="Россия" tvg-name="Россия_HD",Россия HD
+udp://@235.10.10.117:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Еда" ,Еда HD
+ca://@235.10.10.168:1234
+#EXTINF:-1     tvg-logo="SET" tvg-name="Set",S.E.T. HD
+ca://@235.10.10.108:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Nat Geo Wild HD" tvg-name="Nat_Geo_Wild_HD",Nat Geo Wild HD
+ca://@235.10.10.101:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Animal Planet" tvg-name="Animal_Planet_HD",Animal planet HD
+ca://@235.10.10.107:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9,Охотник и рыболов HD
+udp://@235.10.10.119:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Fox" tvg-name="Fox_Crime",Fox HD
+ca://@235.10.10.103:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="FOX Life" tvg-name="Fox_Life_HD",Fox Life HD
+ca://@235.10.10.104:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="MTV",MTV Live HD
+udp://@235.10.10.121:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Mezzo Live HD" tvg-name="Mezzo_Live_HD",Mezzo Live HD
+ca://@235.10.10.170:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Nickelodeon" tvg-name="Nickelodeon_HD",Nickelodeon HD
+ca://@235.10.10.105:1234
+#EXTINF:-1     tvg-logo="КХЛ-ТВ" tvg-name="КХЛ-ТВ",КХЛ HD
+ca://@235.10.10.109:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Спорт 1 HD" tvg-name="Спорт_1_(HD)",Спорт 1 HD
+ca://@235.10.10.172:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9,Trace Sports HD
+udp://@235.10.10.110:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Discovery" tvg-name="Discovery_HD",Discovery Showcase HD
+ca://@235.10.10.106:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Travel channel" ,Travel Channel HD
+ca://@235.10.10.169:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Телепутешествия" ,Телепутешествия HD
+ca://@235.10.10.84:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Fashion TV" tvg-name="Fashion_TV",Fashion HD
+ca://@235.10.10.177:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="Fashion TV Russia" ,Fashion One HD
+ca://@235.10.10.149:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9 tvg-logo="PIKTV",Первый Интернет Канал HD
+udp://@235.10.10.100:1234
+#EXTINF:-1     deinterlace=0 aspect-ratio=16:9,myZen.tv HD
+udp://@235.10.10.120:1234

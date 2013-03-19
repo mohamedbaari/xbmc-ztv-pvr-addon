@@ -27,6 +27,12 @@
 #include "platform/threads/mutex.h"
 #include "client.h"
 
+/*!
+ * @brief PVR macros for string exchange
+ */
+#define PVR_STRCPY(dest, source) do { strncpy(dest, source, sizeof(dest)-1); dest[sizeof(dest)-1] = '\0'; } while(0)
+#define PVR_STRCLR(dest) memset(dest, 0, sizeof(dest))
+
 struct PVRDemoEpgEntry
 {
   int         iBroadcastId;
@@ -55,11 +61,12 @@ struct PVRDemoChannel
   int                     iUniqueId;
   int                     iChannelNumber;
   unsigned long           ulIpNumber;
+  bool                    bIsTcpTransport;
   int                     iEncryptionSystem;
   std::string             strChannelName;
   std::string             strIconPath;
   std::string             strStreamURL;
-  std::vector<PVRDemoEpgEntry> epg;
+  //std::vector<PVRDemoEpgEntry> epg;
 };
 
 struct PVRDemoRecording
@@ -92,12 +99,12 @@ class ILibVLCModule;
 class PVRDemoData
 {
 public:
-  PVRDemoData(bool bIsEnableOnLineEpg);
+  PVRDemoData(bool bIsEnableOnLineEpg, LPCSTR lpszMCastIf);
   virtual ~PVRDemoData(void);
 
-  virtual bool VLCInit(LPCSTR lpszCA, ULONG ulMCastIf);
+  virtual bool VLCInit(LPCSTR lpszCA);
   virtual void FreeVLC(void);
-  virtual bool LoadChannelsData(bool bIsOnLineSource, bool bIsEnableOnLineGroups);
+  virtual bool LoadChannelsData(const std::string& strM3uPath, bool bIsOnLineSource, bool bIsEnableOnLineGroups);
   virtual int GetChannelsAmount(void);
   virtual PVR_ERROR GetChannels(ADDON_HANDLE handle, bool bRadio);
   virtual bool GetChannel(const PVR_CHANNEL &channel, PVRDemoChannel &myChannel);
@@ -115,6 +122,7 @@ public:
   virtual int ReadLiveStream(unsigned char *pBuffer, unsigned int iBufferSize);
   virtual int GetCurrentClientChannel();
   virtual const char * GetLiveStreamURL(const PVR_CHANNEL &channel);
+  virtual bool CanPauseStream();
 
   virtual int GetRecordingsAmount(void);
   virtual PVR_ERROR GetRecordings(ADDON_HANDLE handle);
@@ -124,7 +132,9 @@ public:
 protected:
   virtual bool LoadDemoData(void);
   virtual bool LoadWebXmlData(bool bIsEnableOnLineGroups);
-  virtual int DoHttpRequest(const CStdString& resource, const CStdString& body, CStdString& response);
+  virtual bool LoadM3UList(const std::string& strM3uUri);
+  int DoHttpRequest(const CStdString& resource, const CStdString& body, CStdString& response);
+  CStdString PVRDemoData::ReadMarkerValue(std::string &strLine, const char* strMarkerName);
 private:
   std::map<std::wstring, int>      m_mapLogo;
   std::vector<PVRDemoChannelGroup> m_groups;
@@ -135,7 +145,8 @@ private:
   CStdString                       m_strDefaultMovie;
   PLATFORM::CMutex                 m_mutex;
   LibVLCCAPlugin::ILibVLCModule*   m_ptrVLCCAModule;
-  IStream* m_currentStream;
-  PVRDemoChannel m_currentChannel;
-  bool m_bIsEnableOnLineEpg;
+  IStream*                         m_currentStream;
+  PVRDemoChannel                   m_currentChannel;
+  ULONG                            m_ulMCastIf;
+  bool                             m_bIsEnableOnLineEpg;
 };
