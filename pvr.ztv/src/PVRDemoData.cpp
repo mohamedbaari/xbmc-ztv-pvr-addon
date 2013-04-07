@@ -918,7 +918,7 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 			{
 				// parse name
 				iComma++;
-				strChnlName = strLine.Right((int)strLine.size() - iComma);
+				strChnlName = strLine.Mid(iComma).Trim();
 				//tmpChannel.strChannelName = XBMC->UnknownToUTF8(strChnlName);
 				channel.strChannelName = XBMC->UnknownToUTF8(strChnlName);
 
@@ -1366,13 +1366,16 @@ PVR_ERROR PVRDemoData::RequestWebEPGForChannel(ADDON_HANDLE handle, const PVRDem
 
 			/* plot outline */
 			//if (XMLUtils::GetString(pEpgNode, "plotoutline", strTmp))
-			entry.strPlotOutline = strTmp;
+			//entry.strPlotOutline = strTmp;
+			entry.strPlotOutline = m_strDefaultIcon.c_str();
+			entry.strIconPath = m_strDefaultIcon.c_str();
 
 			/* icon path */
 			//if (XMLUtils::GetString(pEpgNode, "icon", strTmp))
 			if (lpszTmp = pProgramElement->Attribute("picture"))
 			{
 				entry.strIconPath = lpszTmp;
+				entry.strPlotOutline = lpszTmp;
 				//XBMC->Log(LOG_DEBUG, "%s - icon path: %s", __FUNCTION__, lpszTmp);
 			}
 
