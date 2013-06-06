@@ -30,6 +30,7 @@
 using namespace std;
 using namespace ADDON;
 using namespace LibVLCCAPlugin;
+using namespace LibNetStream;
 
 #define HTTP_OK 200
 #define HTTP_NOTFOUND 404
@@ -1504,6 +1505,16 @@ const char * PVRDemoData::GetLiveStreamURL(const PVR_CHANNEL &channel)
 bool PVRDemoData::CanPauseStream()
 {
 	return m_currentChannel.bIsTcpTransport;
+}
+
+void PVRDemoData::PauseStream(bool bPaused)
+{
+	XBMC->Log(LOG_DEBUG, "%s - bPaused = %u", __FUNCTION__, bPaused);
+}
+
+bool PVRDemoData::CanSeekStream()
+{
+	return CanPauseStream();
 }
 
 int PVRDemoData::GetRecordingsAmount(void)
