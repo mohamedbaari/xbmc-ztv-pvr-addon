@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<advancedsettings>
+<network>
+  <curlclienttimeout>8</curlclienttimeout>  <!-- Timeout in seconds for libcurl (http/ftp) connections -->
+  <curllowspeedtime>4</curllowspeedtime>  <!-- Time in seconds for libcurl to consider a connection lowspeed -->
+  <cachemembuffersize>2097152</cachemembuffersize>  <!-- number of bytes used for buffering streams ahead in memory 
+    XBMC will not buffer ahead more than this. WARNING: for the bytes set here, XBMC will consume 3x the amount of RAM -->
+</network>
+<pvr>
+ <minvideocachelevel>11</minvideocachelevel>
+ <minaudiocachelevel>22</minaudiocachelevel>
+</pvr>
+</advancedsettings>
