@@ -3,5 +3,18 @@
 
 = Downloads: =
 
-* [http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip]
-* 123
+[http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip]
+
+The following is:
+  * A list
+  * Of bulleted items
+    # This is a numbered sublist
+    # Which is done by indenting further
+  * And back to the main bulleted list
+
+ * This is also a list
+ * With a single leading space
+ * Notice that it is rendered
+  # At the same levels
+  # As the above lists.
+ * Despite the different indentation levels.
