@@ -3,5 +3,5 @@
 
 = Downloads: =
 
-# [http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip]
-# 123
+* [http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip]
+* 123
