@@ -1,9 +1,0 @@
-v1.6.1
-- Added: m3u file parser (partial copy of the code https://github.com/afedchin/xbmc-addon-iptvsimple)
-- Added: timeshift support for http streams
-- Fixed: added initial read operation for udp protocol with timeout, eliminated hang on inaccessible channels
-- Fixed: tuned logos for channels of extended + HD tariff 
-- Included several sample m3u files of extended + HD tariff and m3u list from user Razzor.
-
-v1.6.0
-- initial alpha version

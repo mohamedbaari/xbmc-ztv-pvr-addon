@@ -1,5 +1,5 @@
 /*
- *      Copyright (C) 2013 Viktor PetroFF
+ *      Copyright (C) 2014 Viktor PetroFF
  *      Copyright (C) 2011 Pulse-Eight
  *      http://www.pulse-eight.com/
  *
@@ -20,7 +20,9 @@
  *
  */
 
-#include "tinyxml/XMLUtils.h"
+#include <algorithm>
+#include <functional>
+#include "tinyxml/tinyxml.h"
 #include "utils.h"
 #include "netstream.h"
 #include "LibVLCPlugin.h"
@@ -32,8 +34,47 @@ using namespace ADDON;
 using namespace LibVLCCAPlugin;
 using namespace LibNetStream;
 
-#define HTTP_OK 200
-#define HTTP_NOTFOUND 404
+struct AlphabeticalOrderLess : public std::binary_function <PVRDemoChannel, PVRDemoChannel, bool>
+{
+    bool operator()(
+        const PVRDemoChannel& _Left, 
+        const PVRDemoChannel& _Right
+    ) const
+	{
+		CStdStringW strLeftNameW = UTF8Util::ConvertUTF8ToUTF16(_Left.strChannelName.c_str()).Trim();
+		CStdStringW strRightNameW = UTF8Util::ConvertUTF8ToUTF16(_Right.strChannelName.c_str()).Trim();
+
+		return (strLeftNameW.CompareNoCase(strRightNameW) < 0);
+	}
+};
+
+struct IpAddressOrderLess : public std::binary_function <PVRDemoChannel, PVRDemoChannel, bool>
+{
+    bool operator()(
+        const PVRDemoChannel& _Left, 
+        const PVRDemoChannel& _Right
+    ) const
+	{
+		return (_Left.ulIpNumber < _Right.ulIpNumber);
+	}
+};
+
+struct URLOrderLess : public std::binary_function <PVRDemoChannel, PVRDemoChannel, bool>
+{
+    bool operator()(
+        const PVRDemoChannel& _Left, 
+        const PVRDemoChannel& _Right
+    ) const
+	{
+		return (_Left.strStreamURL.compare(_Right.strStreamURL) < 0);
+	}
+};
+
+const int HTTP_OK = 200;
+const int HTTP_NOTFOUND = 404;
+
+const char* PVRDemoData::ZTV_CASERVER_URI  = "https://ares:FXa0skl4d@new.watch-tv.zet/";
+const char* PVRDemoData::ZTV_EPGSERVER_URI = "http://ares:FXa0skl4d@epg.watch-tv.zet/";
 
 PVRDemoData::PVRDemoData(bool bIsEnableOnLineEpg, LPCSTR lpszMCastIf)
 {
@@ -42,9 +83,9 @@ PVRDemoData::PVRDemoData(bool bIsEnableOnLineEpg, LPCSTR lpszMCastIf)
   m_ptrVLCCAModule = NULL;
   m_currentStream = NULL;
   m_currentChannel.iUniqueId = 0;
-  m_bIsEnableOnLineEpg = bIsEnableOnLineEpg;
-
   m_ulMCastIf = INADDR_NONE;
+  m_bIsEnableOnLineEpg = bIsEnableOnLineEpg;
+  m_bCaSupport = false;
 
   if(lpszMCastIf && '\0' != *lpszMCastIf && strcmp("255.255.255.255", lpszMCastIf))
   {
@@ -67,8 +108,7 @@ PVRDemoData::PVRDemoData(bool bIsEnableOnLineEpg, LPCSTR lpszMCastIf)
 
 PVRDemoData::~PVRDemoData(void)
 {
-  m_channels.clear();
-  m_groups.clear();
+  FreeVLC();
 }
 
 bool PVRDemoData::VLCInit(LPCSTR lpszCA)
@@ -83,14 +123,34 @@ bool PVRDemoData::VLCInit(LPCSTR lpszCA)
 
 void PVRDemoData::FreeVLC(void)
 {
-	if(!m_ptrVLCCAModule)
+	if(m_currentStream)
+	{
+		m_currentStream->Release();
+		m_currentStream = NULL;
+	}
+
+	if(m_ptrVLCCAModule)
 	{
 		ILibVLCModule::DeleteModule(m_ptrVLCCAModule);
 		m_ptrVLCCAModule = NULL;
 	}
 }
 
-bool PVRDemoData::LoadChannelsData(const std::string& strM3uPath, bool bIsOnLineSource, bool bIsEnableOnLineGroups)
+void PVRDemoData::ProxyAddrInit(LPCSTR lpszIP, int iPort, bool bCaSupport)
+{
+	m_bCaSupport = bCaSupport;
+
+	if(80 == iPort)
+	{
+		m_strProxyAddr = lpszIP;
+	}
+	else
+	{
+		m_strProxyAddr.Format("%s:%d", lpszIP, iPort);
+	}
+}
+
+bool PVRDemoData::LoadChannelsData(const std::string& strM3uPath, bool bIsOnLineSource, bool bIsEnableOnLineGroups, EChannelsSort sortby)
 {
 	bool bSuccess = false;
 
@@ -163,22 +223,50 @@ bool PVRDemoData::LoadChannelsData(const std::string& strM3uPath, bool bIsOnLine
 
 	if(bIsOnLineSource)
 	{
-		if(m_ptrVLCCAModule)
-		{
-			bSuccess = LoadWebXmlData(bIsEnableOnLineGroups);
-		}
+		bSuccess = ("00:00:00:00:00:00" == strM3uPath)?true:LoadWebXmlData(strM3uPath, bIsEnableOnLineGroups);
 	}
 	else
 	{
-		if(strM3uPath.empty())
+		bSuccess = LoadM3UList(strM3uPath);
+	}
+
+	if (bSuccess && !m_channels.empty())
+	{
+		switch (sortby) 
 		{
-			bSuccess = LoadDemoData();
+		case EChannelsSort::none:
+			break;
+		case EChannelsSort::id:
+			std::sort(m_channels.begin(), m_channels.end());
+			break;
+		case EChannelsSort::name:
+			std::sort(m_channels.begin(), m_channels.end(), AlphabeticalOrderLess());
+			break;
+		case EChannelsSort::ip:
+			std::sort(m_channels.begin(), m_channels.end(), IpAddressOrderLess());
+			break;
+		case EChannelsSort::uri:
+			std::sort(m_channels.begin(), m_channels.end(), URLOrderLess());
+			break;
+		default:
+			break;
 		}
-		else
+
+		int iCurrentGroupId = 0;
+
+		for (unsigned int iChannelPtr = 0; iChannelPtr < m_channels.size(); iChannelPtr++)
 		{
-			bSuccess = LoadM3UList(strM3uPath);
+			PVRDemoChannel &channel = m_channels.at(iChannelPtr);
+			channel.iChannelNumber = iChannelPtr + 1;
+
+			iCurrentGroupId = channel.iGroupId;
+			if (iCurrentGroupId > 0) 
+			{
+				m_groups.at(iCurrentGroupId - 1).members.push_back(channel.iChannelNumber);
+			}
 		}
 	}
+
 
 	if(bSuccess)
 	{
@@ -186,36 +274,6 @@ bool PVRDemoData::LoadChannelsData(const std::string& strM3uPath, bool bIsOnLine
 	}
 
 	return bSuccess;
-}
-
-std::string PVRDemoData::GetSettingsFile() const
-{
-	string settingFile = g_strUserPath;
-	if (settingFile.at(settingFile.size() - 1) == '\\' ||
-		settingFile.at(settingFile.size() - 1) == '/')
-	{
-		settingFile.append("PVRDemoAddonSettings.xml");
-	}
-	else
-	{
-		settingFile.append("\\PVRDemoAddonSettings.xml");
-	}
-
-	if (!XBMC->FileExists(settingFile.c_str(), false))
-	{
-		settingFile = g_strClientPath;
-		if (settingFile.at(settingFile.size() - 1) == '\\' ||
-			settingFile.at(settingFile.size() - 1) == '/')
-		{
-			settingFile.append("PVRDemoAddonSettings.xml");
-		}
-		else
-		{
-			settingFile.append("\\PVRDemoAddonSettings.xml");
-		}
-	}
-
-	return settingFile;
 }
 
 typedef const_mem_fun1_ref_t<int, const CStdString, typename CStdString::value_type> TStrFindFunc1;
@@ -313,535 +371,304 @@ std::string PVRDemoData::GetIconPath(LPCSTR lpszIcoFName) const
 	return iconFile;
 }
 
-bool PVRDemoData::LoadDemoData(void)
+bool PVRDemoData::LoadWebXmlData(const std::string& strMac, bool bIsEnableOnLineGroups)
 {
-  TiXmlDocument xmlDoc;
-  string strSettingsFile = GetSettingsFile();
-
-  if (!xmlDoc.LoadFile(strSettingsFile))
-  {
-    XBMC->Log(LOG_ERROR, "invalid demo data (no/invalid data file found at '%s')", strSettingsFile.c_str());
-    return false;
-  }
-
-  TiXmlElement *pRootElement = xmlDoc.RootElement();
-  if (strcmp(pRootElement->Value(), "demo") != 0)
-  {
-    XBMC->Log(LOG_ERROR, "invalid demo data (no <demo> tag found)");
-    return false;
-  }
-
-  /* load channels */
-  int iUniqueChannelId = 0;
-  TiXmlElement *pElement = pRootElement->FirstChildElement("channels");
-  if (pElement)
-  {
-    TiXmlNode *pChannelNode = NULL;
-    while ((pChannelNode = pElement->IterateChildren(pChannelNode)) != NULL)
-    {
-      CStdString strTmp;
-	  PVRDemoChannel channel;
-      channel.iUniqueId = ++iUniqueChannelId;
-
-      /* channel name */
-      if (!XMLUtils::GetString(pChannelNode, "name", strTmp))
-        continue;
-      channel.strChannelName = strTmp;
-
-      /* radio/TV */
-      XMLUtils::GetBoolean(pChannelNode, "radio", channel.bRadio);
-
-      /* channel number */
-      if (!XMLUtils::GetInt(pChannelNode, "number", channel.iChannelNumber))
-        channel.iChannelNumber = iUniqueChannelId;
-
-      /* CAID */
-      //if (!XMLUtils::GetInt(pChannelNode, "encryption", channel.iEncryptionSystem))
-	    //channel.iEncryptionSystem = 0;
-
-      /* icon path */
-      if (XMLUtils::GetString(pChannelNode, "icon", strTmp))
-        channel.strIconPath = strTmp;
-
-	  string nameIcon = channel.strIconPath.empty()?channel.strChannelName:channel.strIconPath.substr(0, channel.strIconPath.length() - 4);
-      channel.strIconPath = GetIconPath(nameIcon.c_str());
-
-      /* stream url */
-      if (!XMLUtils::GetString(pChannelNode, "stream", strTmp))
-        channel.strStreamURL = m_strDefaultMovie;
-      else
-        channel.strStreamURL = strTmp;
-
-      channel.bIsTcpTransport = false;  
-	  channel.iEncryptionSystem = 0;
-
-	  if(channel.strStreamURL.length() < 6)
-	  {
-		  channel.iEncryptionSystem = 0;
-	  }
-	  else if("ca:" == channel.strStreamURL.substr(0,3))
-	  {
-		  channel.iEncryptionSystem = 1;
-	  }
-	  else if("http:" == channel.strStreamURL.substr(0,5))
-	  {
-		  channel.bIsTcpTransport = true;
-	  }
-
-		channel.ulIpNumber = INADDR_NONE;
-
-		CStdString strIp = channel.strStreamURL;
-		int ndx = strIp.ReverseFind(':');
-		if(ndx > 0 && strIp.Left(ndx).ReverseFind(':') > 0)//"1234" == strIp.Mid(ndx + 1))
-		{
-			int ndxx = strIp.ReverseFind('/');
-
-			if(ndxx > 0 && ndx > ndxx)
-			{
-				strIp = strIp.Mid(ndxx + 1, ndx - ndxx - 1);
-
-				strIp.TrimLeft('@');
-
-				unsigned long ulAddr = inet_addr(strIp);
-				if ( ulAddr == INADDR_NONE )
-				{
-					XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_NONE");
-				}   
-    
-				if (ulAddr == INADDR_ANY)
-				{
-					XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_ANY");
-					ulAddr = INADDR_NONE;
-				}
-
-				channel.ulIpNumber = ulAddr;
-			}
-		}
-
-      m_channels.push_back(channel);
-    }
-  }
-
-  /* load channel groups */
-  int iUniqueGroupId = 0;
-  pElement = pRootElement->FirstChildElement("channelgroups");
-  if (pElement)
-  {
-    TiXmlNode *pGroupNode = NULL;
-    while ((pGroupNode = pElement->IterateChildren(pGroupNode)) != NULL)
-    {
-      CStdString strTmp;
-      PVRDemoChannelGroup group;
-      group.iGroupId = ++iUniqueGroupId;
-
-      /* group name */
-      if (!XMLUtils::GetString(pGroupNode, "name", strTmp))
-        continue;
-      group.strGroupName = strTmp;
-
-      /* radio/TV */
-      XMLUtils::GetBoolean(pGroupNode, "radio", group.bRadio);
-
-      /* members */
-      TiXmlNode* pMembers = pGroupNode->FirstChild("members");
-      TiXmlNode *pMemberNode = NULL;
-      while (pMembers != NULL && (pMemberNode = pMembers->IterateChildren(pMemberNode)) != NULL)
-      {
-        int iChannelId = atoi(pMemberNode->FirstChild()->Value());
-        if (iChannelId > -1)
-          group.members.push_back(iChannelId);
-      }
-
-      m_groups.push_back(group);
-    }
-  }
-
-#if 0
-  /* load EPG entries */
-  pElement = pRootElement->FirstChildElement("epg");
-  if (pElement)
-  {
-    TiXmlNode *pEpgNode = NULL;
-    while ((pEpgNode = pElement->IterateChildren(pEpgNode)) != NULL)
-    {
-      CStdString strTmp;
-      int iTmp;
-      PVRDemoEpgEntry entry;
-
-      /* broadcast id */
-      if (!XMLUtils::GetInt(pEpgNode, "broadcastid", entry.iBroadcastId))
-        continue;
-
-      /* channel id */
-      if (!XMLUtils::GetInt(pEpgNode, "channelid", iTmp))
-        continue;
-      PVRDemoChannel &channel = m_channels.at(iTmp - 1);
-      entry.iChannelId = channel.iUniqueId;
-
-      /* title */
-      if (!XMLUtils::GetString(pEpgNode, "title", strTmp))
-        continue;
-      entry.strTitle = strTmp;
-
-      /* start */
-      if (!XMLUtils::GetInt(pEpgNode, "start", iTmp))
-        continue;
-      entry.startTime = iTmp;
-
-      /* end */
-      if (!XMLUtils::GetInt(pEpgNode, "end", iTmp))
-        continue;
-      entry.endTime = iTmp;
-
-      /* plot */
-      if (XMLUtils::GetString(pEpgNode, "plot", strTmp))
-        entry.strPlot = strTmp;
-
-      /* plot outline */
-      if (XMLUtils::GetString(pEpgNode, "plotoutline", strTmp))
-        entry.strPlotOutline = strTmp;
-
-      /* icon path */
-      if (XMLUtils::GetString(pEpgNode, "icon", strTmp))
-        entry.strIconPath = strTmp;
-
-      /* genre type */
-      XMLUtils::GetInt(pEpgNode, "genretype", entry.iGenreType);
-
-      /* genre subtype */
-      XMLUtils::GetInt(pEpgNode, "genresubtype", entry.iGenreSubType);
-
-      XBMC->Log(LOG_DEBUG, "loaded EPG entry '%s' channel '%d' start '%d' end '%d'", entry.strTitle.c_str(), entry.iChannelId, entry.startTime, entry.endTime);
-      channel.epg.push_back(entry);
-    }
-  }
-
-  /* load recordings */
-  iUniqueGroupId = 0; // reset unique ids
-  pElement = pRootElement->FirstChildElement("recordings");
-  if (pElement)
-  {
-    TiXmlNode *pRecordingNode = NULL;
-    while ((pRecordingNode = pElement->IterateChildren(pRecordingNode)) != NULL)
-    {
-      CStdString strTmp;
-      PVRDemoRecording recording;
-
-      /* recording title */
-      if (!XMLUtils::GetString(pRecordingNode, "title", strTmp))
-        continue;
-      recording.strTitle = strTmp;
-
-      /* recording url */
-      if (!XMLUtils::GetString(pRecordingNode, "url", strTmp))
-        recording.strStreamURL = m_strDefaultMovie;
-      else
-        recording.strStreamURL = strTmp;
-
-      iUniqueGroupId++;
-      strTmp.Format("%d", iUniqueGroupId);
-      recording.strRecordingId = strTmp;
-
-      /* channel name */
-      if (XMLUtils::GetString(pRecordingNode, "channelname", strTmp))
-        recording.strChannelName = strTmp;
-
-      /* plot */
-      if (XMLUtils::GetString(pRecordingNode, "plot", strTmp))
-        recording.strPlot = strTmp;
-
-      /* plot outline */
-      if (XMLUtils::GetString(pRecordingNode, "plotoutline", strTmp))
-        recording.strPlotOutline = strTmp;
-
-      /* genre type */
-      XMLUtils::GetInt(pRecordingNode, "genretype", recording.iGenreType);
-
-      /* genre subtype */
-      XMLUtils::GetInt(pRecordingNode, "genresubtype", recording.iGenreSubType);
-
-      /* duration */
-      XMLUtils::GetInt(pRecordingNode, "duration", recording.iDuration);
-
-      /* recording time */
-      if (XMLUtils::GetString(pRecordingNode, "time", strTmp))
-      {
-        time_t timeNow = time(NULL);
-        struct tm* now = localtime(&timeNow);
-
-        int delim = strTmp.Find(':');
-        if (delim != CStdString::npos)
-        {
-          now->tm_hour = (int)strtol(strTmp.Left(delim), NULL, 0);
-          now->tm_min  = (int)strtol(strTmp.Mid(delim + 1), NULL, 0);
-          now->tm_mday--; // yesterday
-
-          recording.recordingTime = mktime(now);
-        }
-      }
-
-      m_recordings.push_back(recording);
-    }
-  }
-#endif // 0
-
-  return true;
-}
-
-bool PVRDemoData::LoadWebXmlData(bool bIsEnableOnLineGroups)
-{
-  CStdString strUrl = "https://ares:FXa0skl4d@new.watch-tv.zet/";
-  CStdString respWebXml;
-  CStdString reqWebXml;
+  bool bSuccess = true;
 
   if(bIsEnableOnLineGroups)
   {
-	  reqWebXml = "<?xml version='1.0' encoding='utf-8'?>"\
-		  "<dxp.packet version='1.0' type='get_iptv_topics' label='%label%' />";
+	  bSuccess = LoadWebXmlGroups();
+  }
 
-	  if (HTTP_NOTFOUND == DoHttpRequest(strUrl, reqWebXml, respWebXml) || respWebXml.IsEmpty())
-	  {
+  if(bSuccess)
+  {
+	  bSuccess = LoadWebXmlChannels(strMac);
+  }
+  
+  return bSuccess;
+}
+
+bool PVRDemoData::LoadWebXmlGroups()
+{
+	bool bSuccess = true;
+	CStdString strUrl = ZTV_CASERVER_URI;
+	CStdString reqWebXml = "<?xml version='1.0' encoding='utf-8'?>"\
+		"<dxp.packet version='1.0' type='get_iptv_topics' label='%label%' />";
+	CStdString respWebXml;
+	TiXmlDocument xmlDoc;
+	TiXmlElement* pRootElement;
+
+	if (HTTP_NOTFOUND == DoHttpRequest(strUrl, reqWebXml, respWebXml) || respWebXml.IsEmpty())
+	{
 		XBMC->Log(LOG_ERROR, "Web xml topics not found at resource 'new.watch-tv.zet'");
-		return false;
-	  }
+		bSuccess = false;
+	}
+	else
+	{
+		xmlDoc.Parse(respWebXml, 0, TIXML_ENCODING_UTF8);
+		if (xmlDoc.Error())
+		{
+			XBMC->Log(LOG_ERROR, "invalid web xml topics (no/invalid data responce found at 'new.watch-tv.zet', xml: '%s')", respWebXml.c_str());
+			bSuccess = false;
+		}
 
-	  TiXmlDocument xmlDoc;
+		if(bSuccess)
+		{
+			int iNotResult = 0;
+			LPCSTR szCode = "unknown";
+			pRootElement = xmlDoc.RootElement();
+			if (strcmp(pRootElement->Value(), "dxp.packet") != 0
+				|| (iNotResult = strcmp(pRootElement->Attribute("type"), "result")) != 0
+				|| (szCode = pRootElement->Attribute("code"))
+				)
+			{
+				LPCSTR szErrorCode;
+				if(iNotResult && (szErrorCode = pRootElement->Attribute("code")))
+				{
+					szCode = szErrorCode;
+				}
+
+				XBMC->Log(LOG_ERROR, "error web data responce (error code '%s' found)", szCode);
+				bSuccess = false;
+			}
+		}
+	}
+
+	if(bSuccess)
+	{
+		/* load channel groups */
+		int iUniqueGroupId = 0;
+		TiXmlElement* pElement = pRootElement->FirstChildElement("topics");
+		if (pElement)
+		{
+			TiXmlNode *pGroupNode = NULL;
+			while ((pGroupNode = pElement->IterateChildren(pGroupNode)) != NULL)
+			{
+				const TiXmlElement* pGrouplElement = pGroupNode->ToElement();
+				LPCSTR lpszTmp = NULL;
+				CStdString strTmp;
+				PVRDemoChannelGroup group;
+				group.iGroupId = ++iUniqueGroupId;
+
+				/* group name */
+				if (lpszTmp = pGrouplElement->Attribute("name"))
+				{
+					group.strGroupName = lpszTmp;
+				}
+				else
+				{
+					continue;
+				}
+
+				int iGroupId = 0;
+				if (!(lpszTmp = pGrouplElement->Attribute("id", &iGroupId)) || group.iGroupId != iGroupId)
+				{
+					XBMC->Log(LOG_ERROR, "invalid channel group (no/invalid group id found at '%d')", iGroupId);
+					continue;
+				}
+
+				group.bRadio = false;
+
+				//XBMC->Log(LOG_DEBUG, "%s - group name: %s, id: %d", __FUNCTION__, group.strGroupName.c_str(), group.iGroupId);
+				m_groups.push_back(group);
+			}
+		}
+		else
+		{
+			XBMC->Log(LOG_ERROR, "Element 'topics' not found, xml: %s", respWebXml.c_str());
+			bSuccess = false;
+		}
+	}
+
+	return bSuccess;
+}
+
+bool PVRDemoData::LoadWebXmlChannels(const std::string& strMac)
+{
+  bool bSuccess = true;
+  CStdString strUrl = ZTV_CASERVER_URI;
+  CStdString respWebXml;
+  CStdString reqWebXml;
+  TiXmlDocument xmlDoc;
+  TiXmlElement* pRootElement;
+
+  reqWebXml.Format(
+	  "<?xml version='1.0' encoding='utf-8'?>"\
+	  "<dxp.packet version='1.0' type='get_iptv_udev_data' label='%%label%%' hw_addr='%s' show_unavailable_channels='yes' />",
+	  strMac.c_str());
+	  //m_ptrVLCCAModule->GetBestMacAddress().c_str());
+
+  if (HTTP_NOTFOUND == DoHttpRequest(strUrl, reqWebXml, respWebXml) || respWebXml.IsEmpty())
+  {
+    XBMC->Log(LOG_ERROR, "Xml web data list not found at resource 'new.watch-tv.zet'");
+    bSuccess = false;
+  }
+  else
+  {
 	  xmlDoc.Parse(respWebXml, 0, TIXML_ENCODING_UTF8);
 	  if (xmlDoc.Error())
 	  {
-		XBMC->Log(LOG_ERROR, "invalid web xml topics (no/invalid data responce found at 'new.watch-tv.zet', xml: '%s')", respWebXml.c_str());
-		return false;
+		XBMC->Log(LOG_ERROR, "invalid web xml list (no/invalid data responce found at 'new.watch-tv.zet')");
+		bSuccess = false;
 	  }
 
+	  int iNotResult = 0;
 	  LPCSTR szCode = "unknown";
-	  TiXmlElement* pRootElement = xmlDoc.RootElement();
+	  pRootElement = xmlDoc.RootElement();
 	  if (strcmp(pRootElement->Value(), "dxp.packet") != 0
-		  || strcmp(pRootElement->Attribute("type"), "result") != 0
+		  || (iNotResult = strcmp(pRootElement->Attribute("type"), "result")) != 0
 		  || (szCode = pRootElement->Attribute("code"))
 		  )
 	  {
-		XBMC->Log(LOG_ERROR, "error web data responce (error code '%s' found)", szCode);
-		return false;
-	  }
+		LPCSTR szErrorCode;
+		if(iNotResult && (szErrorCode = pRootElement->Attribute("code")))
+		{
+			szCode = szErrorCode;
+		}
 
-	  /* load channel groups */
-	  int iUniqueGroupId = 0;
-	  TiXmlElement* pElement = pRootElement->FirstChildElement("topics");
+		XBMC->Log(LOG_ERROR, "error web data responce (error code '%s' found)", szCode);
+		bSuccess = false;
+	  }
+  }
+
+  if(bSuccess)
+  {
+	  /* load channels */
+	  int iUniqueChannelId = 0;
+	  TiXmlElement* pElement = pRootElement->FirstChildElement("channels");
 	  if (pElement)
 	  {
-		TiXmlNode *pGroupNode = NULL;
-		while ((pGroupNode = pElement->IterateChildren(pGroupNode)) != NULL)
+		TiXmlNode *pChannelNode = NULL;
+		while ((pChannelNode = pElement->IterateChildren(pChannelNode)) != NULL)
 		{
-		  const TiXmlElement* pGrouplElement = pGroupNode->ToElement();
+		  const TiXmlElement* pChannelElement = pChannelNode->ToElement();
 		  LPCSTR lpszTmp = NULL;
 		  CStdString strTmp;
-		  PVRDemoChannelGroup group;
-		  group.iGroupId = ++iUniqueGroupId;
+		  PVRDemoChannel channel = {false, 0, 0, 0, 0, false, 0, std::string(), std::string(), std::string()};
 
-		  /* group name */
-		  //if (!XMLUtils::GetString(pGroupNode, "name", strTmp))
-		  if (lpszTmp = pGrouplElement->Attribute("name"))
+		  /* channel name */
+		  if (lpszTmp = pChannelElement->Attribute("name"))
 		  {
-			group.strGroupName = lpszTmp;
+			channel.strChannelName = lpszTmp;
 		  }
 		  else
 		  {
 			continue;
 		  }
 
-		  int iGroupId = 0;
-		  if (!(lpszTmp = pGrouplElement->Attribute("id", &iGroupId)) || group.iGroupId != iGroupId)
+		  /* CAID */
+		  bool bYes = false;
+		  if (TIXML_SUCCESS == pChannelElement->QueryBoolAttribute("encrypted", &bYes))
 		  {
-			XBMC->Log(LOG_ERROR, "invalid channel group (no/invalid group id found at '%d')", iGroupId);
-			continue;
+			if(bYes)
+			{
+				if(m_ptrVLCCAModule || m_bCaSupport)
+				{
+					channel.iEncryptionSystem = 1;
+				}
+				else
+				{
+					continue;
+				}
+			}
+
 		  }
 
-		  /* radio/TV */
-		  //XMLUtils::GetBoolean(pGroupNode, "radio", group.bRadio);
-		  group.bRadio = false;
+		  channel.strIconPath = GetIconPath(channel.strChannelName.c_str());
+
+		  /* channel number */
+		  int iChannelNumber = 0;
+		  if (lpszTmp = pChannelElement->Attribute("id", &iChannelNumber))
+		  {
+			if(iChannelNumber > 0)
+			{
+				channel.iChannelNumber = iChannelNumber;
+			}
+		  }
+
+		  channel.ulIpNumber = INADDR_NONE;
+
+		  /* stream url */
+		  if (lpszTmp = pChannelElement->Attribute("source"))
+		  {
+			strTmp = lpszTmp;
+			int ndx = strTmp.Find(':');
+			if(ndx > 0)
+			{
+				strTmp = strTmp.Left(ndx);
+			}
+
+			unsigned long ulAddr = inet_addr(strTmp);
+			if ( ulAddr == INADDR_NONE )
+			{
+				XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_NONE");
+			}   
+    
+			if (ulAddr == INADDR_ANY)
+			{
+				XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_ANY");
+				ulAddr = INADDR_NONE;
+			}
+
+			LPCSTR lpcszProto=(1 == channel.iEncryptionSystem)?"ca":"udp";
+			if(m_strProxyAddr.empty())
+			{
+				strTmp.Format("%s://@%s", lpcszProto, lpszTmp);
+			}
+			else
+			{
+				strTmp.Format("http://%s/%s/%s", m_strProxyAddr.c_str(), lpcszProto, lpszTmp);
+				channel.bIsTcpTransport = true;
+			}
+
+			channel.strStreamURL = strTmp;
+			channel.ulIpNumber = ulAddr;
+		  }
+		  else
+		  {
+			channel.strStreamURL = m_strDefaultMovie;
+		  }
 
 		  /* members */
-		  //TiXmlNode* pMembers = pGroupNode->FirstChild("members");
-		  //TiXmlNode *pMemberNode = NULL;
-		  //while (pMembers != NULL && (pMemberNode = pMembers->IterateChildren(pMemberNode)) != NULL)
-		  //{
-			//int iChannelId = atoi(pMemberNode->FirstChild()->Value());
-			//if (iChannelId > -1)
-			  //group.members.push_back(iChannelId);
-		  //}
-
-		  //XBMC->Log(LOG_DEBUG, "%s - group name: %s, id: %d", __FUNCTION__, group.strGroupName.c_str(), group.iGroupId);
-		  m_groups.push_back(group);
-		}
-	  }
-
-	  //xmlDoc.Clear();
-  }
-
-  reqWebXml.Format(
-	  "<?xml version='1.0' encoding='utf-8'?>"\
-	  "<dxp.packet version='1.0' type='get_iptv_udev_data' label='%%label%%' hw_addr='%s' show_unavailable_channels='yes' />",
-	  m_ptrVLCCAModule->GetBestMacAddress().c_str());
-
-  if (HTTP_NOTFOUND == DoHttpRequest(strUrl, reqWebXml, respWebXml) || respWebXml.IsEmpty())
-  {
-    XBMC->Log(LOG_ERROR, "Xml web data list not found at resource 'new.watch-tv.zet'");
-    return false;
-  }
-
-  TiXmlDocument xmlDoc;
-  xmlDoc.Parse(respWebXml, 0, TIXML_ENCODING_UTF8);
-  if (xmlDoc.Error())
-  {
-    XBMC->Log(LOG_ERROR, "invalid web xml list (no/invalid data responce found at 'new.watch-tv.zet')");
-    return false;
-  }
-
-  LPCSTR szCode = "unknown";
-  TiXmlElement* pRootElement = xmlDoc.RootElement();
-  if (strcmp(pRootElement->Value(), "dxp.packet") != 0
-	  || strcmp(pRootElement->Attribute("type"), "result") != 0
-	  || (szCode = pRootElement->Attribute("code"))
-	  )
-  {
-    XBMC->Log(LOG_ERROR, "error web data responce (error code '%s' found)", szCode);
-    return false;
-  }
-
-  /* load channels */
-  int iUniqueChannelId = 0;
-  TiXmlElement* pElement = pRootElement->FirstChildElement("channels");
-  if (pElement)
-  {
-    TiXmlNode *pChannelNode = NULL;
-    while ((pChannelNode = pElement->IterateChildren(pChannelNode)) != NULL)
-    {
-	  const TiXmlElement* pChannelElement = pChannelNode->ToElement();
-      LPCSTR lpszTmp = NULL;
-	  CStdString strTmp;
-      PVRDemoChannel channel;
-      channel.iUniqueId = ++iUniqueChannelId;
-
-      /* channel name */
-      //if (!XMLUtils::GetString(pChannelNode, "name", strTmp))
-	  if (lpszTmp = pChannelElement->Attribute("name"))
-	  {
-		channel.strChannelName = lpszTmp;
-	  }
-	  else
-	  {
-        continue;
-	  }
-
-      /* radio/TV */
-      //XMLUtils::GetBoolean(pChannelNode, "radio", channel.bRadio);
-	  channel.bRadio = false;
-
-      /* channel number */
-      //if (!XMLUtils::GetInt(pChannelNode, "number", channel.iChannelNumber))
-	  if (lpszTmp = pChannelElement->Attribute("id", &channel.iChannelNumber))
-	  {
-		//channel.iUniqueId = channel.iChannelNumber;
-		//iUniqueChannelId = channel.iChannelNumber;
-		if(channel.iUniqueId != channel.iChannelNumber)
-		{
-			XBMC->Log(LOG_INFO, "unique channel id (%d) and channel id/number (%d) is not match", channel.iUniqueId, channel.iChannelNumber);
-		}
-	  }
-	  else
-	  {
-		channel.iChannelNumber = channel.iUniqueId;
-	  }
-
-	  channel.bIsTcpTransport = false;
-      /* CAID */
-      //if (!XMLUtils::GetInt(pChannelNode, "encryption", channel.iEncryptionSystem))
-	  bool bYes=false;
-	  if (TIXML_SUCCESS != pChannelElement->QueryBoolAttribute("encrypted", &bYes))
-	  {
-		channel.iEncryptionSystem = 0;
-	  }
-	  else
-	  {
-		channel.iEncryptionSystem = (bYes)?1:0;
-	  }
-
-      /* icon path */
-      //if (!XMLUtils::GetString(pChannelNode, "icon", strTmp))
-        //channel.strIconPath = m_strDefaultIcon;
-      //else
-        //channel.strIconPath = strTmp;
-		
-	  channel.strIconPath = GetIconPath(channel.strChannelName.c_str());
-
-      /* stream url */
-      //if (!XMLUtils::GetString(pChannelNode, "stream", strTmp))
-	  if (lpszTmp = pChannelElement->Attribute("source"))
-	  {
-		strTmp = lpszTmp;
-		int ndx = strTmp.Find(':');
-		if(ndx > 0)
-		{
-			strTmp = strTmp.Left(ndx);
-		}
-
-		unsigned long ulAddr = inet_addr(strTmp);
-		if ( ulAddr == INADDR_NONE )
-		{
-			XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_NONE");
-		}   
-    
-		if (ulAddr == INADDR_ANY)
-		{
-			XBMC->Log(LOG_ERROR, "inet_addr failed and returned INADDR_ANY");
-			ulAddr = INADDR_NONE;
-		}
-
-		LPCSTR lpcszProto=(1 == channel.iEncryptionSystem)?"ca":"udp";
-		strTmp.Format("%s://@%s", lpcszProto, lpszTmp);
-        channel.strStreamURL = strTmp;
-		channel.ulIpNumber = ulAddr;
-	  }
-      else
-	  {
-        channel.strStreamURL = m_strDefaultMovie;
-		channel.ulIpNumber = INADDR_NONE;
-	  }
-
-	  //if("ca:" == channel.strStreamURL.substr(0,3))
-	  //{
-		  //channel.iEncryptionSystem = -1;
-	  //}
-
-      /* members */
-	  if(!m_groups.empty())
-	  {
-		int iTopicID = 0;
-		if (lpszTmp = pChannelElement->Attribute("topic_id", &iTopicID))
-		{
-			if(iTopicID <= m_groups.size())
+		  if(!m_groups.empty())
+		  {
+			int iTopicID = 0;
+			if (lpszTmp = pChannelElement->Attribute("topic_id", &iTopicID))
 			{
-				//XBMC->Log(LOG_DEBUG, "topic: %d - id member: %d", iTopicID, channel.iUniqueId);
-				m_groups.at(iTopicID-1).members.push_back(channel.iUniqueId);
+				if(iTopicID <= m_groups.size())
+				{
+					//XBMC->Log(LOG_DEBUG, "topic: %d - id member: %d", iTopicID, channel.iUniqueId);
+					//m_groups.at(iTopicID-1).members.push_back(channel.iChannelNumber);
+					channel.iGroupId = iTopicID;
+				}
 			}
+		  }
+
+		  channel.iUniqueId = GetChannelId(channel.strStreamURL.c_str(), channel.ulIpNumber);
+
+		  //XBMC->Log(LOG_DEBUG, "%s - channel name: %s, id: %d, mrl: %s", __FUNCTION__, channel.strChannelName.c_str(), channel.iUniqueId, channel.strStreamURL.c_str());
+		  m_channels.push_back(channel);
 		}
 	  }
-
-	  //XBMC->Log(LOG_DEBUG, "%s - channel name: %s, id: %d, mrl: %s", __FUNCTION__, channel.strChannelName.c_str(), channel.iUniqueId, channel.strStreamURL.c_str());
-	  m_channels.push_back(channel);
-    }
+	  else
+	  {
+		XBMC->Log(LOG_ERROR, "Element 'channels' not found, xml: %s", respWebXml.c_str());
+		bSuccess = false;
+	  }
   }
-  
-  return true;
+
+  return bSuccess;
 }
 
-#define M3U_START_MARKER       "#EXTM3U"
-#define M3U_INFO_MARKER        "#EXTINF"
 
-#define TVG_INFO_LOGO_MARKER   "tvg-logo="
+const char* M3U_START_MARKER       ="#EXTM3U";
+const char* M3U_INFO_MARKER        ="#EXTINF";
 
-#define CHANNEL_ID_MARKER      "id="
-#define GROUP_NAME_MARKER      "group-title="
+const char* TVG_INFO_LOGO_MARKER   ="tvg-logo=";
+
+const char* CHANNEL_ID_MARKER      ="id=";
+const char* GROUP_NAME_MARKER      ="group-title=";
+const char* RADIO_MARKER           ="radio=";
 
 class groupfinder: unary_function<const PVRDemoChannelGroup&, bool>
 {
@@ -855,34 +682,60 @@ private:
 	const string& _strGroupName;
 };
 
+/* open without caching. regardless to file type. */
+#define READ_NO_CACHE  0x08
+
+struct IntZero
+{
+	int iInt;
+
+	IntZero()
+	{
+		iInt = 0;
+	}
+};
+
 bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 {
-	void* hFile = XBMC->OpenFile(strM3uUri.c_str(), 0);
+	if (strM3uUri.empty())
+	{
+		XBMC->Log(LOG_NOTICE, "Playlist file path is not configured. Channels not loaded.");
+		return false;
+	}
+
+	void* hFile = XBMC->OpenFile(strM3uUri.c_str(), 0); // READ_NO_CACHE
 	if (!hFile)
 	{
 		XBMC->Log(LOG_ERROR, "Unable to load playlist file '%s':  file is missing or empty.", strM3uUri.c_str());
 		return false;
 	}
 
+	stdext::hash_map<std::string, IntZero> mapURIs;
 	/* load channels */
 	bool isfirst = true;
 
-	int iUniqueChannelId = 0;
 	int iUniqueGroupId = 0;
 	int iCurrentGroupId = 0;
 
-	PVRDemoChannel channel;
-
-	//char szLine[1024];
-	//while(stream.getline(szLine, 1024))
-
+	PVRDemoChannel channel = {false, 0, 0, 0, 0, false, 0, std::string(), std::string(), std::string()};
+	CStdString strContent;
+	CStdString strChnlID;
     CStdString strLine;
-	while(XBMC->ReadFileString(hFile, strLine.SetBuf(512), 512))
+	
+    while (int bytesRead = XBMC->ReadFile(hFile, strLine.SetBuf(256), 256))
+	{
+	  strLine.RelBuf(bytesRead);
+      strContent.append(strLine);
+	}
+
+	std::stringstream stream(strContent);
+	//while(XBMC->ReadFileString(hFile, strLine.SetBuf(512), 512))
+	while(stream.getline(strLine.SetBuf(512), 512)) 
 	{
 		strLine.RelBuf();
 		strLine.TrimRight(" \t\r\n");
 		strLine.TrimLeft(" \t");
-
+		//XBMC->Log(LOG_DEBUG, "==> %s", strLine.c_str());
 		if (strLine.IsEmpty())
 		{
 			continue;
@@ -905,13 +758,13 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 			}
 		}
 
-		CStdString	strChnlName;
-		CStdString	strChnlID;
-		CStdString	strTvgLogo;
-		CStdString	strGroupName;
-
 		if (strLine.Left((int)strlen(M3U_INFO_MARKER)) == M3U_INFO_MARKER) 
 		{
+			CStdString	strChnlName;
+			CStdString	strTvgLogo;
+			CStdString	strGroupName;
+			CStdString	strRadio;
+
 			// parse line
 			int iColon = (int)strLine.Find(':');
 			int iComma = (int)strLine.ReverseFind(',');
@@ -920,15 +773,16 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 				// parse name
 				iComma++;
 				strChnlName = strLine.Mid(iComma).Trim();
-				//tmpChannel.strChannelName = XBMC->UnknownToUTF8(strChnlName);
 				channel.strChannelName = XBMC->UnknownToUTF8(strChnlName);
 
 				// parse info
-				CStdString strInfoLine = strLine.Mid(++iColon, --iComma - iColon);
+				iColon++;
+				CStdString strInfoLine = strLine.Mid(iColon, --iComma - iColon);
 
 				strChnlID = ReadMarkerValue(strInfoLine, CHANNEL_ID_MARKER);
 				strTvgLogo = ReadMarkerValue(strInfoLine, TVG_INFO_LOGO_MARKER);
 				strGroupName = ReadMarkerValue(strInfoLine, GROUP_NAME_MARKER);
+				strRadio      = ReadMarkerValue(strInfoLine, RADIO_MARKER);
 
 				if (strTvgLogo.IsEmpty())
 				{
@@ -936,25 +790,23 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 				}
 				else
 				{
-					//tmpChannel.strTvgLogo = XBMC->UnknownToUTF8(strTvgLogo);
 					strTvgLogo = XBMC->UnknownToUTF8(strTvgLogo);
 				}
 
 				channel.strIconPath = GetIconPath(strTvgLogo);
-
+				channel.bRadio      = !strRadio.CompareNoCase("true");
 
 				if (!strGroupName.IsEmpty())
 				{
 					strGroupName = XBMC->UnknownToUTF8(strGroupName);
 
-					//if ((pGroup = FindGroup(strGroupName)) == NULL)
 					vector<PVRDemoChannelGroup>::const_iterator pos = find_if(m_groups.cbegin(), m_groups.cend(), groupfinder(strGroupName));
 					if(m_groups.cend() == pos)
 					{
 					    PVRDemoChannelGroup group;
 						group.strGroupName = strGroupName;
 						group.iGroupId = ++iUniqueGroupId;
-						group.bRadio = false;
+						group.bRadio = channel.bRadio;
 
 						m_groups.push_back(group);
 						iCurrentGroupId = iUniqueGroupId;
@@ -968,29 +820,37 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 		} 
 		else if (strLine[0] != '#')
 		{
-			//PVRIptvChannel channel;
-			channel.iUniqueId		= ++iUniqueChannelId;
-			channel.strStreamURL	= strLine;
-			channel.bIsTcpTransport = false;
-			channel.iEncryptionSystem = 0;
-			channel.bRadio = false;
+			channel.ulIpNumber = INADDR_NONE;
 
-			if(channel.strStreamURL.length() < 6)
+			bool bMcastProto = false;
+
+			if(strLine.length() < 6)
 			{
 				channel.iEncryptionSystem = 0;
 			}
-			else if("ca:" == channel.strStreamURL.substr(0,3))
+			else if("ca:" == strLine.substr(0,3))
 			{
-				channel.iEncryptionSystem = 1;
+				if(m_ptrVLCCAModule || m_bCaSupport)
+				{
+					channel.iEncryptionSystem = 1;
+				}
+				else
+				{
+					continue;
+				}
+
+				bMcastProto = true;
 			}
-			else if("http:" == channel.strStreamURL.substr(0,5))
+			else if("udp:" == strLine.substr(0,4))
+			{
+				bMcastProto = true;
+			}
+			else if("http:" == strLine.substr(0,5))
 			{
 				channel.bIsTcpTransport = true;
 			}
 
-			channel.ulIpNumber = INADDR_NONE;
-
-			CStdString strIp = channel.strStreamURL;
+			CStdString strIp = strLine;
 			int ndx = strIp.ReverseFind(':');
 			if(ndx > 0 && strIp.Left(ndx).ReverseFind(':') > 0)//"1234" == strIp.Mid(ndx + 1))
 			{
@@ -1018,58 +878,77 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 				}
 			}
 
-			if (!strChnlID.IsEmpty())
+			if(bMcastProto)
 			{
-				//channel.iUniqueId = channel.iChannelNumber;
-				//iUniqueChannelId = channel.iChannelNumber;
-				channel.iChannelNumber = atoi(strChnlID);
-				if(channel.iUniqueId != channel.iChannelNumber)
+				ndx = strLine.ReverseFind('@');
+				if(ndx > 0)
 				{
-					XBMC->Log(LOG_INFO, "unique channel id (%d) and channel id/number (%d) is not match", channel.iUniqueId, channel.iChannelNumber);
-				}
-
-				if(0 == channel.iChannelNumber)
-				{
-					channel.iChannelNumber = channel.iUniqueId;
+					strIp = strLine.Mid(ndx + 1);
+					LPCSTR lpcszProto = (1 == channel.iEncryptionSystem)?"ca":"udp";
+					if(!m_strProxyAddr.empty())
+					{
+						CStdString strTmp;
+						strTmp.Format("http://%s/%s/%s", m_strProxyAddr.c_str(), lpcszProto, strIp.c_str());
+						channel.strStreamURL = strTmp;
+						channel.bIsTcpTransport = true;
+					}
 				}
 			}
 			else
 			{
-				channel.iChannelNumber = channel.iUniqueId;
+				channel.strStreamURL	= strLine;
+			}
+
+			if (!strChnlID.IsEmpty())
+			{
+				int iChannelNumber = atoi(strChnlID);
+
+				if(iChannelNumber > 0)
+				{
+					channel.iChannelNumber = iChannelNumber;
+				}
+			}
+
+			channel.iUniqueId = GetChannelId(channel.strStreamURL.c_str(), channel.ulIpNumber);
+
+			IntZero iIndex = mapURIs[channel.strStreamURL];
+			mapURIs[channel.strStreamURL].iInt++;
+
+			channel.iUniqueId += iIndex.iInt;
+
+			if (iCurrentGroupId > 0) 
+			{
+				channel.iGroupId = iCurrentGroupId;
 			}
 
 			m_channels.push_back(channel);
 
-			if (iCurrentGroupId > 0) 
-			{
-				m_groups.at(iCurrentGroupId - 1).members.push_back(channel.iChannelNumber);
-			}
-
-			//tmpChannel.strChannelName = "";
-			//tmpChannel.strTvgName = "";
-			//tmpChannel.strTvgLogo = "";
 			channel.iUniqueId		= 0;
 			channel.iChannelNumber	= 0;
+			channel.iGroupId        = 0;
 			channel.iEncryptionSystem = 0;
+			channel.bRadio = false;
 			channel.ulIpNumber = 0;
+			channel.bIsTcpTransport = false;
 			channel.strChannelName.clear();
 			channel.strStreamURL.clear();
 			channel.strIconPath.clear();
 		}
 	}
 
-	if (m_channels.size() == 0)
+	XBMC->CloseFile(hFile);
+
+	if (m_channels.empty())
 	{
 		XBMC->Log(LOG_ERROR, "Unable to load channels from file '%s':  file is corrupted.", strM3uUri.c_str());
+
 		return false;
 	}
 
-	XBMC->CloseFile(hFile);
-
 	XBMC->Log(LOG_NOTICE, "Loaded %d channels.", m_channels.size());
+
 	return true;
 }
-
 
 int PVRDemoData::GetChannelsAmount(void)
 {
@@ -1078,9 +957,9 @@ int PVRDemoData::GetChannelsAmount(void)
 
 PVR_ERROR PVRDemoData::GetChannels(ADDON_HANDLE handle, bool bRadio)
 {
-  for (unsigned int iChannelPtr = 0; iChannelPtr < m_channels.size(); iChannelPtr++)
+  for (std::vector<PVRDemoChannel>::const_iterator pos = m_channels.begin(); pos < m_channels.end(); pos++)
   {
-    PVRDemoChannel &channel = m_channels.at(iChannelPtr);
+    const PVRDemoChannel &channel = *pos;
     if (channel.bRadio == bRadio)
     {
       PVR_CHANNEL xbmcChannel;
@@ -1091,8 +970,16 @@ PVR_ERROR PVRDemoData::GetChannels(ADDON_HANDLE handle, bool bRadio)
       xbmcChannel.iChannelNumber    = channel.iChannelNumber;
       strncpy(xbmcChannel.strChannelName, channel.strChannelName.c_str(), sizeof(xbmcChannel.strChannelName) - 1);
 	  //strncpy(xbmcChannel.strStreamURL, channel.strStreamURL.c_str(), sizeof(xbmcChannel.strStreamURL) - 1);
-	  xbmcChannel.iEncryptionSystem = channel.iEncryptionSystem;
-	  PVR_STRCPY(xbmcChannel.strInputFormat, "video/x-mpegts");
+	  xbmcChannel.iEncryptionSystem = channel.bIsTcpTransport?0:channel.iEncryptionSystem;
+	  //PVR_STRCPY(xbmcChannel.strInputFormat, "video/x-mpegts");
+	  if(channel.bRadio)
+	  {
+        PVR_STRCPY(xbmcChannel.strInputFormat, "audio/mpeg");
+      }
+	  else
+      {
+        PVR_STRCPY(xbmcChannel.strInputFormat, "video/x-mpegts");
+	  }
       strncpy(xbmcChannel.strIconPath, channel.strIconPath.c_str(), sizeof(xbmcChannel.strIconPath) - 1);
       xbmcChannel.bIsHidden         = false;
 
@@ -1105,11 +992,13 @@ PVR_ERROR PVRDemoData::GetChannels(ADDON_HANDLE handle, bool bRadio)
 
 bool PVRDemoData::GetChannel(const PVR_CHANNEL &channel, PVRDemoChannel &myChannel)
 {
-  //for (unsigned int iChannelPtr = 0; iChannelPtr < m_channels.size(); iChannelPtr++)
-  if(channel.iUniqueId > 0 && channel.iUniqueId <= m_channels.size())
+  int iChanNum = channel.iChannelNumber;
+
+  XBMC->Log(LOG_DEBUG, "Find channel UniqueId: %d, iChannelNumber: %d.", channel.iUniqueId, channel.iChannelNumber);
+
+  if(iChanNum > 0 && iChanNum <= m_channels.size())
   {
-    //PVRDemoChannel &thisChannel = m_channels.at(iChannelPtr);
-	PVRDemoChannel& thisChannel = m_channels.at(channel.iUniqueId-1);
+	PVRDemoChannel& thisChannel = m_channels.at(iChanNum-1);
     if (thisChannel.iUniqueId == (int) channel.iUniqueId)
     {
       myChannel = thisChannel;
@@ -1164,8 +1053,8 @@ PVR_ERROR PVRDemoData::GetChannelGroupMembers(ADDON_HANDLE handle, const PVR_CHA
 
         strncpy(xbmcGroupMember.strGroupName, group.strGroupName, sizeof(xbmcGroupMember.strGroupName) - 1);
         xbmcGroupMember.iChannelUniqueId = channel.iUniqueId;
-        //xbmcGroupMember.iChannelNumber   = channel.iChannelNumber;
-		xbmcGroupMember.iChannelNumber   = iChannelPtr + 1;
+        xbmcGroupMember.iChannelNumber   = channel.iChannelNumber;
+		//xbmcGroupMember.iChannelNumber   = iChannelPtr + 1;
 
         PVR->TransferChannelGroupMember(handle, &xbmcGroupMember);
       }
@@ -1177,82 +1066,23 @@ PVR_ERROR PVRDemoData::GetChannelGroupMembers(ADDON_HANDLE handle, const PVR_CHA
 
 PVR_ERROR PVRDemoData::GetEPGForChannel(ADDON_HANDLE handle, const PVR_CHANNEL &channel, time_t iStart, time_t iEnd)
 {
-  if (m_iEpgStart == -1)
-    m_iEpgStart = iStart;
+	if (m_iEpgStart == -1)
+	{
+		m_iEpgStart = iStart;
+	}
 
-  PVR_ERROR result = PVR_ERROR_NO_ERROR;
-  //time_t start;
-  //time_t end;
-  //CDateTime::GetCurrentDateTime().GetAsUTCDateTime().GetAsTime(start);
-  //end = start + m_iDisplayTime;
-  //start -= g_advancedSettings.m_iEpgLingerTime * 60;
+	PVR_ERROR result = PVR_ERROR_NO_ERROR;
+	time_t iLastEndTime = m_iEpgStart + 1;
 
-  //time_t now = time(NULL);
-  //time_t offset = m_iEpgStart - (now % 604800);
-  //time_t beginTime = m_iEpgStart - (m_iEpgStart % 604800) - 259200;
-  time_t deltaWeek = m_iEpgStart % 604800;
-  time_t beginTime = m_iEpgStart - deltaWeek + (deltaWeek < 345600)?(-259200):(345600);
-  time_t iLastEndTime = m_iEpgStart + 1;
-  int iAddBroadcastId = 0;
+	PVRDemoChannel& myChannel = m_channels.at(channel.iChannelNumber -1);
 
-  //for (unsigned int iChannelPtr = 0; iChannelPtr < m_channels.size(); iChannelPtr++)
-  //{
-    //PVRDemoChannel &myChannel = m_channels.at(iChannelPtr);
-    PVRDemoChannel& myChannel = m_channels.at(channel.iUniqueId -1);
-    //if (myChannel.iUniqueId != (int) channel.iUniqueId)
-      //continue;
-
-    //while (iLastEndTime < iEnd && myChannel.epg.size() > 0)
-	if (iLastEndTime < iEnd)
-    {
-#if 0
-	  if(myChannel.epg.size() > 0)
-	  {
-		  time_t iLastEndTimeTmp = 0;
-		  for (unsigned int iEntryPtr = 0; iEntryPtr < myChannel.epg.size(); iEntryPtr++)
-		  {
-			PVRDemoEpgEntry &myTag = myChannel.epg.at(iEntryPtr);
-
-			EPG_TAG tag;
-			memset(&tag, 0, sizeof(EPG_TAG));
-
-			tag.iUniqueBroadcastId = myTag.iBroadcastId + iAddBroadcastId;
-			tag.strTitle           = myTag.strTitle.c_str();
-			tag.iChannelNumber     = myTag.iChannelId;
-			tag.startTime          = myTag.startTime + beginTime;//myTag.startTime + iLastEndTime;
-			tag.endTime            = myTag.endTime + beginTime;//myTag.endTime + iLastEndTime;
-			tag.strPlotOutline     = myTag.strPlotOutline.c_str();
-			tag.strPlot            = myTag.strPlot.c_str();
-			tag.strIconPath        = myTag.strIconPath.c_str();
-			tag.iGenreType         = myTag.iGenreType;
-			tag.iGenreSubType      = myTag.iGenreSubType;
-
-			iLastEndTimeTmp = tag.endTime;
-
-			if(tag.startTime >= iStart && tag.endTime <= iEnd)
-			{
-				PVR->TransferEpgEntry(handle, &tag);
-			}
-		  }
-
-		  iLastEndTime = iLastEndTimeTmp;
-		  iAddBroadcastId += myChannel.epg.size();
-	  }
-	  else
-#endif // 0
-
-	  if(m_bIsEnableOnLineEpg)
-	  {
-		  result = RequestWebEPGForChannel(handle, myChannel, iStart, iEnd);
-	  }
-    }
-  //}
+	if (m_bIsEnableOnLineEpg && iLastEndTime < iEnd)
+	{
+		result = RequestWebEPGForChannel(handle, myChannel, iStart, iEnd);
+	}
 
   return result;
 }
-
-
-//time_t DateTimeToTimeT(const std::string& datetime);
 
 PVR_ERROR PVRDemoData::RequestWebEPGForChannel(ADDON_HANDLE handle, const PVRDemoChannel& channel, time_t iStart, time_t iEnd)
 {
@@ -1269,7 +1099,7 @@ PVR_ERROR PVRDemoData::RequestWebEPGForChannel(ADDON_HANDLE handle, const PVRDem
 		return PVR_ERROR_NO_ERROR;
 	}
 
-	CStdString strUrl = "http://ares:FXa0skl4d@epg.watch-tv.zet/";
+	CStdString strUrl = ZTV_EPGSERVER_URI;
 	CStdString reqWebXml;
 	CStdString respWebXml;
 
@@ -1291,13 +1121,20 @@ PVR_ERROR PVRDemoData::RequestWebEPGForChannel(ADDON_HANDLE handle, const PVRDem
 		return PVR_ERROR_FAILED;
 	}
 
+	int iNotResult = 0;
 	LPCSTR szCode = "unknown";
 	TiXmlElement *pRootElement = xmlDoc.RootElement();
 	if (strcmp(pRootElement->Value(), "dxp.packet") != 0
-		|| strcmp(pRootElement->Attribute("type"), "result") != 0
+		|| (iNotResult = strcmp(pRootElement->Attribute("type"), "result")) != 0
 		|| (szCode = pRootElement->Attribute("code"))
 		)
 	{
+		LPCSTR szErrorCode;
+		if(iNotResult && (szErrorCode = pRootElement->Attribute("code")))
+		{
+			szCode = szErrorCode;
+		}
+
 		XBMC->Log(LOG_ERROR, "error responce web xml data (error code '%s' found)", szCode);
 		return PVR_ERROR_SERVER_ERROR;
 	}
@@ -1362,17 +1199,13 @@ PVR_ERROR PVRDemoData::RequestWebEPGForChannel(ADDON_HANDLE handle, const PVRDem
 			entry.strTitle = strTmp;
 
 			/* plot */
-			//if (XMLUtils::GetString(pProgramNode, "plot", strTmp))
 			entry.strPlot = strTmp;
 
 			/* plot outline */
-			//if (XMLUtils::GetString(pEpgNode, "plotoutline", strTmp))
-			//entry.strPlotOutline = strTmp;
 			entry.strPlotOutline = m_strDefaultIcon.c_str();
 			entry.strIconPath = m_strDefaultIcon.c_str();
 
 			/* icon path */
-			//if (XMLUtils::GetString(pEpgNode, "icon", strTmp))
 			if (lpszTmp = pProgramElement->Attribute("picture"))
 			{
 				entry.strIconPath = lpszTmp;
@@ -1380,19 +1213,13 @@ PVR_ERROR PVRDemoData::RequestWebEPGForChannel(ADDON_HANDLE handle, const PVRDem
 				//XBMC->Log(LOG_DEBUG, "%s - icon path: %s", __FUNCTION__, lpszTmp);
 			}
 
-			/* genre type */
-			//XMLUtils::GetInt(pEpgNode, "genretype", entry.iGenreType);
-
-			/* genre subtype */
-			//XMLUtils::GetInt(pEpgNode, "genresubtype", entry.iGenreSubType);
-
 			//XBMC->Log(LOG_DEBUG, "loaded EPG entry '%s' channel '%d' start '%d' end '%d'",
 				//entry.strTitle.c_str(), entry.iChannelId, entry.startTime, entry.endTime);
 
 			epg.push_back(entry);
 		}
 
-		int iAddBroadcastId = channel.iChannelNumber << 20;
+		int iAddBroadcastId = ((channel.iUniqueId >> 16) + channel.iUniqueId) << 20;
 
 		for (unsigned int iEntryPtr = 0; iEntryPtr < epg.size(); iEntryPtr++)
 		{
@@ -1517,36 +1344,6 @@ bool PVRDemoData::CanSeekStream()
 	return CanPauseStream();
 }
 
-int PVRDemoData::GetRecordingsAmount(void)
-{
-  return m_recordings.size();
-}
-
-PVR_ERROR PVRDemoData::GetRecordings(ADDON_HANDLE handle)
-{
-  for (std::vector<PVRDemoRecording>::iterator it = m_recordings.begin() ; it != m_recordings.end() ; it++)
-  {
-    PVRDemoRecording &recording = *it;
-
-    PVR_RECORDING xbmcRecording;
-
-    xbmcRecording.iDuration     = recording.iDuration;
-    xbmcRecording.iGenreType    = recording.iGenreType;
-    xbmcRecording.iGenreSubType = recording.iGenreSubType;
-    xbmcRecording.recordingTime = recording.recordingTime;
-
-    strncpy(xbmcRecording.strChannelName, recording.strChannelName.c_str(), sizeof(xbmcRecording.strChannelName) - 1);
-    strncpy(xbmcRecording.strPlotOutline, recording.strPlotOutline.c_str(), sizeof(xbmcRecording.strPlotOutline) - 1);
-    strncpy(xbmcRecording.strPlot,        recording.strPlot.c_str(),        sizeof(xbmcRecording.strPlot) - 1);
-    strncpy(xbmcRecording.strRecordingId, recording.strRecordingId.c_str(), sizeof(xbmcRecording.strRecordingId) - 1);
-    strncpy(xbmcRecording.strTitle,       recording.strTitle.c_str(),       sizeof(xbmcRecording.strTitle) - 1);
-    strncpy(xbmcRecording.strStreamURL,   recording.strStreamURL.c_str(),   sizeof(xbmcRecording.strStreamURL) - 1);
-
-    PVR->TransferRecordingEntry(handle, &xbmcRecording);
-  }
-
-  return PVR_ERROR_NO_ERROR;
-}
 
 /************************************************************/
 /** http handling */
@@ -1643,42 +1440,30 @@ CStdString PVRDemoData::ReadMarkerValue(std::string &strLine, const char* strMar
 		}
 	}
 
-	return std::string();
+	return CStdString();
 }
 
-
-#if 0
-
-time_t DateTimeToTimeT(const std::string& datetime)
+int PVRDemoData::GetChannelId(const char * strStreamUrl, unsigned int uiChannelId)
 {
-  struct tm timeinfo;
-  int year, month ,day;
-  int hour, minute, second;
-  int count;
-  time_t retval;
+	const char* strString = strStreamUrl;
+	SHORT wId = 0;
+	SHORT c;
 
-  count = sscanf(datetime.c_str(), "%4d-%2d-%2d %2d:%2d:%2d", &year, &month, &day, &hour, &minute, &second);
+	while (c = *strString++)
+	{
+		wId = (((wId << 5) + wId) + c); /* iId * 33 + c */
+	}
 
-  if(count != 6)
-    return -1;
+	if (0 == uiChannelId)
+	{
+		uiChannelId = 0x2;
+	}
+	else if(INADDR_NONE == uiChannelId)
+	{
+		uiChannelId = 0x3;
+	}
 
-  timeinfo.tm_hour = hour;
-  timeinfo.tm_min = minute;
-  timeinfo.tm_sec = second;
-  timeinfo.tm_year = year - 1900;
-  timeinfo.tm_mon = month - 1;
-  timeinfo.tm_mday = day;
-  // Make the other fields empty:
-  timeinfo.tm_isdst = -1;
-  timeinfo.tm_wday = 0;
-  timeinfo.tm_yday = 0;
+	USHORT wChannelId = ((USHORT)(uiChannelId>>16) + (USHORT)uiChannelId);
 
-  retval = mktime (&timeinfo);
-
-  if(retval < 0)
-    retval = 0;
-
-  return retval;
+	return ((abs(wId) << 16)|(0x18000)|(int)wChannelId);
 }
-
-#endif // 0

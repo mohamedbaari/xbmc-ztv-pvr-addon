@@ -1,23 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="pvr.ztv"
-  version="1.6.1"
+  version="1.9.1"
   name="PVR ZTV Client"
   provider-name="ViPetroFF">
   <requires>
     <c-pluff version="0.1"/>
-	<import addon="xbmc.pvr" version="1.6.0"/>
+	<import addon="xbmc.pvr" version="1.9.0"/>
   </requires>
   <extension
     point="xbmc.pvrclient"
-    library_linux="XBMC_ZTV.pvr"
-	library_osx="XBMC_ZTV.pvr"
     library_wingl="XBMC_ZTV_win32.dll"
-    library_windx="XBMC_ZTV_win32.dll"
-    library_android="libXBMC_ZTV.so" />
+    library_windx="XBMC_ZTV_win32.dll"/>
   <extension point="xbmc.addon.metadata">
-	<summary>XBMC frontend for the ZTV service.</summary>
-	<description>ZTV frontend. Supports streaming of Live TV &amp; EPG.</description>
+	<summary>XBMC frontend for the Interzet IPTV service.</summary>
+	<description>ZTV frontend. Supports streaming of Live TV and receiving EPG.</description>
     <disclaimer>This is beta version. Use at your own risk.</disclaimer>	
     <platform>wingl windx</platform>
   </extension>
