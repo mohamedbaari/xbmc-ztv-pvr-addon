@@ -1,6 +1,6 @@
 #pragma once
 /*
- *      Copyright (C) 2013 Viktor PetroFF
+ *      Copyright (C) 2014 Viktor PetroFF
  *      Copyright (C) 2011 Pulse-Eight
  *      http://www.pulse-eight.com/
  *
@@ -22,6 +22,7 @@
  */
 
 #include <map>
+#include <hash_map>
 #include <vector>
 #include "platform/util/StdString.h"
 #include "platform/threads/mutex.h"
@@ -33,26 +34,27 @@
 #define PVR_STRCPY(dest, source) do { strncpy(dest, source, sizeof(dest)-1); dest[sizeof(dest)-1] = '\0'; } while(0)
 #define PVR_STRCLR(dest) memset(dest, 0, sizeof(dest))
 
+enum EChannelsSort
+{
+  none = 0,
+  id,
+  name,
+  ip,
+  uri,
+};
+
 struct PVRDemoEpgEntry
 {
   int         iBroadcastId;
-  std::string strTitle;
   int         iChannelId;
+  int         iGenreType;
+  int         iGenreSubType;
   time_t      startTime;
   time_t      endTime;
+  std::string strTitle;
   std::string strPlotOutline;
   std::string strPlot;
   std::string strIconPath;
-  int         iGenreType;
-  int         iGenreSubType;
-//  time_t      firstAired;
-//  int         iParentalRating;
-//  int         iStarRating;
-//  bool        bNotify;
-//  int         iSeriesNumber;
-//  int         iEpisodeNumber;
-//  int         iEpisodePartNumber;
-//  std::string strEpisodeName;
 };
 
 struct PVRDemoChannel
@@ -60,27 +62,16 @@ struct PVRDemoChannel
   bool                    bRadio;
   int                     iUniqueId;
   int                     iChannelNumber;
+  int                     iGroupId;
   unsigned long           ulIpNumber;
   bool                    bIsTcpTransport;
   int                     iEncryptionSystem;
   std::string             strChannelName;
   std::string             strIconPath;
   std::string             strStreamURL;
-  //std::vector<PVRDemoEpgEntry> epg;
-};
 
-struct PVRDemoRecording
-{
-  int         iDuration;
-  int         iGenreType;
-  int         iGenreSubType;
-  std::string strChannelName;
-  std::string strPlotOutline;
-  std::string strPlot;
-  std::string strRecordingId;
-  std::string strStreamURL;
-  std::string strTitle;
-  time_t      recordingTime;
+  bool operator<(const PVRDemoChannel& other) const { return (iChannelNumber < other.iChannelNumber); }
+  bool operator==(const PVRDemoChannel& other) const { return (iUniqueId == other.iUniqueId); }
 };
 
 struct PVRDemoChannelGroup
@@ -104,7 +95,8 @@ public:
 
   virtual bool VLCInit(LPCSTR lpszCA);
   virtual void FreeVLC(void);
-  virtual bool LoadChannelsData(const std::string& strM3uPath, bool bIsOnLineSource, bool bIsEnableOnLineGroups);
+  virtual void ProxyAddrInit(LPCSTR lpszIP, int iPort, bool bCaSupport);
+  virtual bool LoadChannelsData(const std::string& strM3uPath, bool bIsOnLineSource, bool bIsEnableOnLineGroups, EChannelsSort sortby);
   virtual int GetChannelsAmount(void);
   virtual PVR_ERROR GetChannels(ADDON_HANDLE handle, bool bRadio);
   virtual bool GetChannel(const PVR_CHANNEL &channel, PVRDemoChannel &myChannel);
@@ -123,30 +115,34 @@ public:
   virtual int GetCurrentClientChannel();
   virtual const char * GetLiveStreamURL(const PVR_CHANNEL &channel);
   virtual bool CanPauseStream();
+  void PauseStream(bool bPaused);
+  bool CanSeekStream();
 
-  virtual int GetRecordingsAmount(void);
-  virtual PVR_ERROR GetRecordings(ADDON_HANDLE handle);
-
-  virtual std::string GetSettingsFile() const;
   virtual std::string GetIconPath(LPCSTR lpszIcoFName) const;
 protected:
-  virtual bool LoadDemoData(void);
-  virtual bool LoadWebXmlData(bool bIsEnableOnLineGroups);
+  virtual bool LoadWebXmlData(const std::string& strMac, bool bIsEnableOnLineGroups);
+  virtual bool LoadWebXmlGroups();
+  virtual bool LoadWebXmlChannels(const std::string& strMac);
   virtual bool LoadM3UList(const std::string& strM3uUri);
   int DoHttpRequest(const CStdString& resource, const CStdString& body, CStdString& response);
   CStdString PVRDemoData::ReadMarkerValue(std::string &strLine, const char* strMarkerName);
+  int GetChannelId(const char * strStreamUrl, unsigned int uiChannelId);
 private:
+  static const char* ZTV_CASERVER_URI;
+  static const char* ZTV_EPGSERVER_URI;
+
   std::map<std::wstring, int>      m_mapLogo;
   std::vector<PVRDemoChannelGroup> m_groups;
   std::vector<PVRDemoChannel>      m_channels;
-  std::vector<PVRDemoRecording>    m_recordings;
   time_t                           m_iEpgStart;
   CStdString                       m_strDefaultIcon;
   CStdString                       m_strDefaultMovie;
+  CStdString                       m_strProxyAddr;
   PLATFORM::CMutex                 m_mutex;
   LibVLCCAPlugin::ILibVLCModule*   m_ptrVLCCAModule;
   IStream*                         m_currentStream;
   PVRDemoChannel                   m_currentChannel;
   ULONG                            m_ulMCastIf;
   bool                             m_bIsEnableOnLineEpg;
+  bool                             m_bCaSupport;
 };

@@ -1,7 +1,7 @@
 # XBMC Media Center language file
 # Addon Name: ZTV PVR Client
 # Addon id: pvr.ztv
-# Addon version: 1.6.1.0
+# Addon version: 1.9.0.0
 # Addon Provider: ViPetroFF
 msgid ""
 msgstr ""
@@ -20,19 +20,19 @@ msgstr ""
 #Settings labels
 
 msgctxt "#30000"
-msgid "Channels list source"
+msgid "Source of channels"
 msgstr ""
 
 msgctxt "#30001"
-msgid "Enable on-line groups"
+msgid "Enable groups"
 msgstr ""
 
 msgctxt "#30002"
-msgid "NextPVR PinCode"
+msgid "MAC"
 msgstr ""
 
 msgctxt "#30003"
-msgid "Enable on-line EPG"
+msgid "Enable EPG"
 msgstr ""
 
 msgctxt "#30004"
@@ -40,7 +40,7 @@ msgid "Multicast interface"
 msgstr ""
 
 msgctxt "#30005"
-msgid "Enable off-line ca support"
+msgid "Enable ca support"
 msgstr ""
 
 msgctxt "#30006"
@@ -60,7 +60,27 @@ msgid "Resource location"
 msgstr ""
 
 msgctxt "#30010"
-msgid "M3U channels list"
+msgid "M3U list of channels"
+msgstr ""
+
+msgctxt "#30011"
+msgid "On-line list of channels"
+msgstr ""
+
+msgctxt "#30012"
+msgid "Enable udp proxy"
+msgstr ""
+
+msgctxt "#30013"
+msgid "IP address"
+msgstr ""
+
+msgctxt "#30014"
+msgid "IP port"
+msgstr ""
+
+msgctxt "#30015"
+msgid "Sorted by"
 msgstr ""
 
 #empty strings from id 30007 to 30039
@@ -71,7 +91,7 @@ msgid "Channels"
 msgstr ""
 
 msgctxt "#30041"
-msgid "EPG"
+msgid "UDP Proxy"
 msgstr ""
 
 msgctxt "#30042"
