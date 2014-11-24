@@ -885,13 +885,17 @@ bool PVRDemoData::LoadM3UList(const std::string& strM3uUri)
 				{
 					strIp = strLine.Mid(ndx + 1);
 					LPCSTR lpcszProto = (1 == channel.iEncryptionSystem)?"ca":"udp";
-					if(!m_strProxyAddr.empty())
+					CStdString strTmp;
+					if(m_strProxyAddr.empty())
 					{
-						CStdString strTmp;
+						strTmp.Format("%s://@%s", lpcszProto, strIp.c_str());
+					}
+					else
+					{
 						strTmp.Format("http://%s/%s/%s", m_strProxyAddr.c_str(), lpcszProto, strIp.c_str());
-						channel.strStreamURL = strTmp;
 						channel.bIsTcpTransport = true;
 					}
+					channel.strStreamURL = strTmp;
 				}
 			}
 			else

@@ -380,6 +380,7 @@ const CStdString CLibVLCModule::_cLibVLCArgs[] = {
                                     "--config=${CFG_PATH}.IpTvPvr.Vlc.ini",
                                     //"-vvv",
                                     "--plugin-path=${CFG_PATH}plugins",
+									"--ignore-config",
                                     "--no-plugins-cache",
                                     "--no-osd",
                                     "--no-media-library",
@@ -501,13 +502,13 @@ void CLibVLCModule::LibVLCRelease()
 		delete _pLibAccess;
 		_pLibAccess = NULL;
 	}
-
+	//XBMC->Log(LOG_DEBUG, "libvlc_release(????");
     if (NULL != _pLibVLCHandle)
     {
-		libvlc_release(_pLibVLCHandle);
+		//libvlc_release(_pLibVLCHandle);
         _pLibVLCHandle = NULL;
     }
-
+	//XBMC->Log(LOG_DEBUG, "libvlc_release(!!!!!");
     if (NULL != _hmodVLCCore)
     {
         dlclose(_hmodVLCCore);
