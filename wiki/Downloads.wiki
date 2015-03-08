@@ -3,6 +3,6 @@
 
 = Downloads: =
 
-  # [http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip] - tv addon for XBMC 13.1 Gotham
-  # [http://sourceforge.net/projects/xbmcztvpvraddon/files/plugin.audio.101.0.1.1.zip/download plugin.audio.101.0.1.1.zip] - radio addon 101.ru V0.1.1 (wma edition) for XBMC 13.1 Gotham
-  # [http://sourceforge.net/projects/xbmcztvpvraddon/files/DialogPVRGuideInfo%28skin.confluence.2.2.15%29.FixEPGInfo.xml/download DialogPVRGuideInfo.xml] - отображение logo телепередач в диалогах EPG skin.confluence.2.2.15 (fix epg info for skin.confluence.2.2.15)
+  # [http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.2.zip/download pvr.ztv.1.9.2.zip] - tv addon for Kodi 14.x Helix
+  #
+[http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip] - tv addon for XBMC 13.1 Gotham
