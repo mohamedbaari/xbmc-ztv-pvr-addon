@@ -4,4 +4,4 @@
 = Downloads: =
 
   # [http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.2.zip/download pvr.ztv.1.9.2.zip] - tv addon for Kodi 14.x Helix
-  #[http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zip/download pvr.ztv.1.9.1.zip] - tv addon for XBMC 13.1 Gotham
+  #[http://sourceforge.net/projects/xbmcztvpvraddon/files/pvr.ztv.1.9.1.zi/download pvr.ztv.1.9.1.zip] - tv addon for XBMC 13.1 Gotham
